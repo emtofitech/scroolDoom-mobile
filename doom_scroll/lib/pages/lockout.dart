@@ -113,12 +113,7 @@ class _LockoutPageState extends State<LockoutPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF031415),
 
-      bottomNavigationBar: AppBottomNav(
-        currentIndex: 3,
-        onTap: (index) {
-          // TODO: navigate pages
-        },
-      ),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 3),
       body: Stack(
         children: [
           /// GLOW
@@ -140,180 +135,191 @@ class _LockoutPageState extends State<LockoutPage> {
           ),
 
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 12),
 
-                  /// TOP BAR
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: const [
-                          Icon(Icons.shield, color: AppColors.text, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'DoomScroll',
+                          /// TOP BAR
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(Icons.shield, color: AppColors.text, size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'DoomScroll',
+                                    style: TextStyle(
+                                      color: AppColors.text,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              const Icon(
+                                Icons.account_circle_outlined,
+                                color: AppColors.muted,
+                              ),
+                            ],
+                          ),
+
+                          const Spacer(),
+
+                          const Text(
+                            'INTERVENTION ACTIVE',
                             style: TextStyle(
-                              color: AppColors.text,
+                              color: AppColors.cyan,
+                              letterSpacing: 3,
+                              fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              fontSize: 18,
+                            ),
+                          ),
+
+                          const SizedBox(height: 26),
+
+                          Text(
+                            'You\'ve exceeded\nyour ${widget.appName} limit.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.text,
+                              fontSize: 42,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                              letterSpacing: -1,
+                            ),
+                          ),
+
+                          const SizedBox(height: 18),
+
+                          const Text(
+                            'Your mind deserves a reset.',
+                            style: TextStyle(color: AppColors.muted, fontSize: 15),
+                          ),
+
+                          const SizedBox(height: 50),
+
+                          Text(
+                            formatted,
+                            style: const TextStyle(
+                              color: AppColors.text,
+                              fontSize: 88,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -4,
+                              height: 1,
+                            ),
+                          ),
+
+                          const SizedBox(height: 18),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [_dot(active: true), _dot(), _dot()],
+                          ),
+
+                          const SizedBox(height: 48),
+
+                          /// BUTTON
+                          GestureDetector(
+                            onTap: _showUnlockSheet,
+                            child: Container(
+                              width: double.infinity,
+                              height: 58,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(
+                                  color: AppColors.cyan.withOpacity(0.35),
+                                ),
+                                color: Colors.white.withOpacity(0.02),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'Unlock options',
+                                  style: TextStyle(
+                                    color: AppColors.text,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          /// STATS CARD
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.03),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: const [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Time Saved Today',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    SizedBox(height: 6),
+                                    Text(
+                                      '2h 45m',
+                                      style: TextStyle(
+                                        color: AppColors.cyan,
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: Colors.transparent,
+                                  child: Text(
+                                    '82%',
+                                    style: TextStyle(
+                                      color: AppColors.text,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 22),
+                            child: Text(
+                              'Hold to Emergency Unlock',
+                              style: TextStyle(color: AppColors.muted, fontSize: 12),
                             ),
                           ),
                         ],
                       ),
-
-                      const Icon(
-                        Icons.account_circle_outlined,
-                        color: AppColors.muted,
-                      ),
-                    ],
-                  ),
-
-                  const Spacer(),
-
-                  const Text(
-                    'INTERVENTION ACTIVE',
-                    style: TextStyle(
-                      color: AppColors.cyan,
-                      letterSpacing: 3,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
                     ),
                   ),
-
-                  const SizedBox(height: 26),
-
-                  Text(
-                    'You\'ve exceeded\nyour ${widget.appName} limit.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontSize: 42,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1,
-                      letterSpacing: -1,
-                    ),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  const Text(
-                    'Your mind deserves a reset.',
-                    style: TextStyle(color: AppColors.muted, fontSize: 15),
-                  ),
-
-                  const SizedBox(height: 50),
-
-                  Text(
-                    formatted,
-                    style: const TextStyle(
-                      color: AppColors.text,
-                      fontSize: 88,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -4,
-                      height: 1,
-                    ),
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [_dot(active: true), _dot(), _dot()],
-                  ),
-
-                  const SizedBox(height: 48),
-
-                  /// BUTTON
-                  GestureDetector(
-                    onTap: _showUnlockSheet,
-                    child: Container(
-                      width: double.infinity,
-                      height: 58,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: AppColors.cyan.withOpacity(0.35),
-                        ),
-                        color: Colors.white.withOpacity(0.02),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'Unlock options',
-                          style: TextStyle(
-                            color: AppColors.text,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  /// STATS CARD
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.03),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Time Saved Today',
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 11,
-                              ),
-                            ),
-                            SizedBox(height: 6),
-                            Text(
-                              '2h 45m',
-                              style: TextStyle(
-                                color: AppColors.cyan,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        CircleAvatar(
-                          radius: 26,
-                          backgroundColor: Colors.transparent,
-                          child: Text(
-                            '82%',
-                            style: TextStyle(
-                              color: AppColors.text,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 22),
-                    child: Text(
-                      'Hold to Emergency Unlock',
-                      style: TextStyle(color: AppColors.muted, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],

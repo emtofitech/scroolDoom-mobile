@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:doom_scroll/auth_pages/signin.dart';
 import 'package:flutter/material.dart';
 
 class SignupPage extends StatelessWidget {
@@ -189,7 +190,10 @@ class SignupPage extends StatelessWidget {
                   Center(
                     child: TextButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SigninPage()),
+                        );
                       },
                       child: const Text(
                         "Already have an account? Sign in",

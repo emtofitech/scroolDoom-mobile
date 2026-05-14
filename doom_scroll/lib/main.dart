@@ -1,6 +1,4 @@
-import 'package:doom_scroll/pages/app_limits.dart';
 import 'package:doom_scroll/pages/landing.dart';
-import 'package:doom_scroll/pages/lockout.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -13,9 +11,10 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       title: 'DoomScroll',
-      home: LockoutPage(appName: ''),
+      debugShowCheckedModeBanner: false,
+      home: LandingPage(),
     );
   }
 }

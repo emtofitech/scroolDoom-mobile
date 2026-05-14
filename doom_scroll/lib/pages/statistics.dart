@@ -61,7 +61,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bg,
-      bottomNavigationBar: const AppBottomNav(),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 2),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 18),

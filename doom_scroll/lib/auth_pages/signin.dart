@@ -1,4 +1,6 @@
 import 'dart:ui';
+import 'package:doom_scroll/auth_pages/signup.dart';
+import 'package:doom_scroll/pages/home.dart';
 import 'package:flutter/material.dart';
 
 class SigninPage extends StatelessWidget {
@@ -142,37 +144,45 @@ class SigninPage extends StatelessWidget {
                             const SizedBox(height: 24),
 
                             /// SIGN IN BUTTON — cyan-to-purple gradient
-                            Container(
-                              width: double.infinity,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF00F2FF),
-                                    Color(0xFF7000FF),
-                                  ],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF00F2FF,
-                                    ).withOpacity(0.3),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const HomePage()),
+                                );
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF00F2FF),
+                                      Color(0xFF7000FF),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
                                   ),
-                                ],
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  "SIGN IN",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                    letterSpacing: 2,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF00F2FF,
+                                      ).withOpacity(0.3),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    "SIGN IN",
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                      letterSpacing: 2,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -189,7 +199,10 @@ class SigninPage extends StatelessWidget {
                   Center(
                     child: TextButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SignupPage()),
+                        );
                       },
                       child: const Text(
                         "Don't have an account? Create one",
