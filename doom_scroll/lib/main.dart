@@ -1,5 +1,5 @@
-import 'package:doom_scroll/pages/landing.dart';
 import 'package:flutter/material.dart';
+import 'core/router/app_router.dart';
 
 void main() {
   runApp(const MyApp());
@@ -8,13 +8,12 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp.router(
       title: 'DoomScroll',
       debugShowCheckedModeBanner: false,
-      home: LandingPage(),
+      routerConfig: appRouter,
     );
   }
 }

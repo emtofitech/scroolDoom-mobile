@@ -1,47 +1,29 @@
-import 'package:doom_scroll/pages/app_limits.dart';
-import 'package:doom_scroll/pages/home.dart';
-import 'package:doom_scroll/pages/statistics.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/theme/colors.dart';
-import '../pages/lockout.dart';
+import '../core/router/app_router.dart';
 
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
-  final Function(int)? onTap;
 
-  const AppBottomNav({super.key, this.currentIndex = 0, this.onTap});
+  const AppBottomNav({super.key, this.currentIndex = 0});
 
   void _handleNavigation(BuildContext context, int index) {
-    if (onTap != null) {
-      onTap!(index);
-      return;
-    }
-
-    Widget page;
-
     switch (index) {
       case 0:
-        page = const HomePage();
+        context.go(AppRoutes.home);
         break;
-
       case 1:
-        page = const AppLimitsPage();
+        context.go(AppRoutes.limits);
         break;
-
       case 2:
-        page = const StatisticsPage();
+        context.go(AppRoutes.stats);
         break;
-
       case 3:
-        page = const LockoutPage(appName: 'Instagram');
+        context.go(AppRoutes.lockout);
         break;
-
-      default:
-        page = const HomePage();
     }
-
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
   }
 
   @override

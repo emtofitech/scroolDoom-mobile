@@ -1,9 +1,84 @@
 import 'dart:ui';
-import 'package:doom_scroll/auth_pages/signin.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../core/services/auth_service.dart';
+import '../core/router/app_router.dart';
 
-class SignupPage extends StatelessWidget {
+class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
+
+  @override
+  State<SignupPage> createState() => _SignupPageState();
+}
+
+class _SignupPageState extends State<SignupPage> {
+  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSignup() async {
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    // Basic validation
+    if (username.isEmpty || email.isEmpty || password.isEmpty) {
+      _showSnackBar('Please fill in all fields.');
+      return;
+    }
+
+    if (password.length < 8 || password.length > 72) {
+      _showSnackBar('Password must be between 8 and 72 characters.');
+      return;
+    }
+
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      _showSnackBar('Please enter a valid email address.');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final result = await AuthService.register(
+      username: username,
+      email: email,
+      password: password,
+    );
+
+    setState(() => _isLoading = false);
+
+    if (!mounted) return;
+
+    if (result.isSuccess) {
+      _showSnackBar('Account created successfully! Please sign in.', isError: false);
+
+      // Navigate to sign-in page (not home) after successful registration
+      context.go(AppRoutes.signIn);
+    } else {
+      _showSnackBar(result.error ?? 'Registration failed.');
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = true}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? const Color(0xFFFF3B5C) : const Color(0xFF00E676),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +176,7 @@ class SignupPage extends StatelessWidget {
                             _input(
                               hint: "your_handle",
                               icon: Icons.person_outline_rounded,
+                              controller: _usernameController,
                             ),
 
                             const SizedBox(height: 20),
@@ -119,6 +195,7 @@ class SignupPage extends StatelessWidget {
                             _input(
                               hint: "name@future.com",
                               icon: Icons.alternate_email_rounded,
+                              controller: _emailController,
                             ),
 
                             const SizedBox(height: 20),
@@ -138,43 +215,63 @@ class SignupPage extends StatelessWidget {
                               hint: "••••••••",
                               icon: Icons.lock_outline_rounded,
                               obscure: true,
+                              controller: _passwordController,
                             ),
 
                             const SizedBox(height: 28),
 
                             /// CREATE ACCOUNT BUTTON
-                            Container(
-                              width: double.infinity,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF00F2FF),
-                                    Color(0xFF7000FF),
+                            GestureDetector(
+                              onTap: _isLoading ? null : _handleSignup,
+                              child: Container(
+                                width: double.infinity,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: _isLoading
+                                        ? [
+                                            const Color(0xFF00F2FF).withOpacity(0.5),
+                                            const Color(0xFF7000FF).withOpacity(0.5),
+                                          ]
+                                        : [
+                                            const Color(0xFF00F2FF),
+                                            const Color(0xFF7000FF),
+                                          ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFF00F2FF,
+                                      ).withOpacity(0.3),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 8),
+                                    ),
                                   ],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
                                 ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF00F2FF,
-                                    ).withOpacity(0.3),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
-                                  ),
-                                ],
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  "CREATE ACCOUNT",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                    letterSpacing: 2,
-                                  ),
+                                child: Center(
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              Colors.black,
+                                            ),
+                                          ),
+                                        )
+                                      : const Text(
+                                          "CREATE ACCOUNT",
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 14,
+                                            letterSpacing: 2,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
@@ -189,12 +286,7 @@ class SignupPage extends StatelessWidget {
                   /// NAV TO SIGNIN
                   Center(
                     child: TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const SigninPage()),
-                        );
-                      },
+                      onPressed: () => context.go(AppRoutes.signIn),
                       child: const Text(
                         "Already have an account? Sign in",
                         style: TextStyle(
@@ -218,6 +310,7 @@ class SignupPage extends StatelessWidget {
   Widget _input({
     required String hint,
     required IconData icon,
+    required TextEditingController controller,
     bool obscure = false,
   }) {
     return ClipRRect(
@@ -225,6 +318,7 @@ class SignupPage extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: TextField(
+          controller: controller,
           obscureText: obscure,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(

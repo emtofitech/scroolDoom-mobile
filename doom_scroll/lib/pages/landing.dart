@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:doom_scroll/auth_pages/signin.dart';
-import 'package:doom_scroll/auth_pages/signup.dart';
+import 'package:go_router/go_router.dart';
 import '../core/theme/colors.dart';
+import '../core/router/app_router.dart';
 
 class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
@@ -34,12 +34,7 @@ class LandingPage extends StatelessWidget {
                   ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SignupPage()),
-                      );
-                    },
+                    onTap: () => context.go(AppRoutes.signUp),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -86,12 +81,7 @@ class LandingPage extends StatelessWidget {
 
               /// GET STARTED BUTTON
               GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SignupPage()),
-                  );
-                },
+                onTap: () => context.go(AppRoutes.signUp),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -118,12 +108,7 @@ class LandingPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const SigninPage()),
-                        );
-                      },
+                      onTap: () => context.go(AppRoutes.signIn),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
@@ -142,12 +127,7 @@ class LandingPage extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const SignupPage()),
-                        );
-                      },
+                      onTap: () => context.go(AppRoutes.signUp),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
