@@ -22,43 +22,43 @@ class AppRoutes {
   static const String lockout = '/lockout';
 }
 
+/// Global navigator key — lets services outside the widget tree push routes.
+/// Usage: appNavigatorKey.currentContext?.go(AppRoutes.lockout)
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'appNavigator',
+);
+
 /// GoRouter configuration for the entire app.
-final GoRouter appRouter = GoRouter(
+final appRouter = GoRouter(
+  navigatorKey: appNavigatorKey,
   initialLocation: AppRoutes.landing,
   routes: [
     GoRoute(
       path: AppRoutes.landing,
-      name: 'landing',
       builder: (context, state) => const LandingPage(),
     ),
     GoRoute(
       path: AppRoutes.signIn,
-      name: 'signIn',
       builder: (context, state) => const SigninPage(),
     ),
     GoRoute(
       path: AppRoutes.signUp,
-      name: 'signUp',
       builder: (context, state) => const SignupPage(),
     ),
     GoRoute(
       path: AppRoutes.home,
-      name: 'home',
       builder: (context, state) => const HomePage(),
     ),
     GoRoute(
       path: AppRoutes.limits,
-      name: 'limits',
       builder: (context, state) => const AppLimitsPage(),
     ),
     GoRoute(
       path: AppRoutes.stats,
-      name: 'stats',
       builder: (context, state) => const StatisticsPage(),
     ),
     GoRoute(
       path: AppRoutes.lockout,
-      name: 'lockout',
       builder: (context, state) {
         final appName = state.uri.queryParameters['app'] ?? 'Instagram';
         return LockoutPage(appName: appName);

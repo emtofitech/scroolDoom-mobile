@@ -76,6 +76,58 @@ class ApiClient {
       return ApiResponse.error(e.toString());
     }
   }
+
+  // ── PUT ──────────────────────────────────────────────────────────────────
+  static Future<ApiResponse> put(
+    String endpoint, {
+    required Map<String, dynamic> body,
+    String? token,
+  }) async {
+    final uri = ApiEndpoints.uri(endpoint);
+    final jsonBody = jsonEncode(body);
+
+    debugPrint('📡 [PUT] $uri');
+    debugPrint('📡 [BODY] $jsonBody');
+
+    try {
+      final response = await http
+          .put(uri, headers: _headers(token: token), body: utf8.encode(jsonBody))
+          .timeout(_timeout, onTimeout: () {
+        throw TimeoutException('Request timed out.');
+      });
+
+      debugPrint('✅ [${response.statusCode}] ${response.body}');
+      return ApiResponse._fromHttp(response);
+    } on TimeoutException catch (e) {
+      return ApiResponse.error(e.message ?? 'Request timed out.');
+    } catch (e) {
+      return ApiResponse.error(e.toString());
+    }
+  }
+
+  // ── DELETE ──────────────────────────────────────────────────────────────
+  static Future<ApiResponse> delete(
+    String endpoint, {
+    String? token,
+  }) async {
+    final uri = ApiEndpoints.uri(endpoint);
+    debugPrint('📡 [DELETE] $uri');
+
+    try {
+      final response = await http
+          .delete(uri, headers: _headers(token: token))
+          .timeout(_timeout, onTimeout: () {
+        throw TimeoutException('Request timed out.');
+      });
+
+      debugPrint('✅ [${response.statusCode}] ${response.body}');
+      return ApiResponse._fromHttp(response);
+    } on TimeoutException catch (e) {
+      return ApiResponse.error(e.message ?? 'Request timed out.');
+    } catch (e) {
+      return ApiResponse.error(e.toString());
+    }
+  }
 }
 
 /// Unified API response — wraps raw HTTP or network errors.

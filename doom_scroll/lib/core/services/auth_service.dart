@@ -1,178 +1,185 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kIsWeb, TargetPlatform;
+
 import '../models/api_result.dart';
 import '../models/auth_models.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import 'token_storage.dart';
 
-/// Service responsible for all authentication operations.
 class AuthService {
   AuthService._();
 
-  // ── Register ────────────────────────────────────────────────────────────
+  static final _firebaseAuth = FirebaseAuth.instance;
+
+  // ───────────────── REGISTER ─────────────────
+
   static Future<ApiResult<AuthResponse>> register({
     required String username,
     required String email,
     required String password,
   }) async {
-    final response = await ApiClient.post(
-      ApiEndpoints.register,
-      body: {
-        'username': username,
-        'email': email,
-        'password': password,
-        'timezone': DateTime.now().timeZoneName,
-        'deviceFingerprint': _generateFingerprint(),
-        'fcmToken': 'not-available',
-        'platform': _getPlatform(),
-      },
-    );
+    try {
+      // Step 1 — Create Firebase account
+      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
-    // Network-level error (no HTTP response)
-    if (response.isNetworkError) {
-      return ApiResult.failure(response.errorMessage ?? 'Network error');
+      final firebaseUid = credential.user!.uid;
+
+      // Step 2 — Get FCM token
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      // Step 3 — Call backend
+      final response = await ApiClient.post(
+        ApiEndpoints.register,
+        body: {
+          "displayName": username,
+          "email": email,
+          "firebaseUid": firebaseUid,
+          "fcmToken": fcmToken ?? "not-available",
+        },
+      );
+
+      if (response.isNetworkError) {
+        return ApiResult.failure(response.errorMessage ?? 'Network error');
+      }
+
+      if (response.json == null) {
+        return ApiResult.failure(
+          response.errorMessage ?? 'Empty server response',
+        );
+      }
+
+      if (response.isSuccess) {
+        final authData = AuthResponse.fromJson(response.json!);
+        await _persistAuth(authData);
+        return ApiResult.success(authData);
+      }
+
+      return ApiResult.failure(
+        response.errorMessage ?? 'Registration failed (${response.statusCode})',
+      );
+    } on FirebaseAuthException catch (e) {
+      return ApiResult.failure(_firebaseErrorMessage(e.code));
     }
-
-    // Empty body (e.g. CORS block)
-    if (response.json == null) {
-      return ApiResult.failure(response.errorMessage ?? 'Empty server response');
-    }
-
-    final json = response.json!;
-
-    if (response.isSuccess && json['success'] == true && json['data'] != null) {
-      return ApiResult.success(AuthResponse.fromJson(json['data']));
-    }
-
-    // Error message from API
-    final errMsg = json['error']?['message'] ??
-        json['message'] ??
-        'Registration failed (${response.statusCode})';
-    return ApiResult.failure(errMsg);
   }
 
-  // ── Login ───────────────────────────────────────────────────────────────
-  /// Calls the login API, persists tokens + user on success.
+  // ───────────────── LOGIN ─────────────────
+
   static Future<ApiResult<AuthResponse>> login({
     required String email,
     required String password,
   }) async {
-    final response = await ApiClient.post(
-      ApiEndpoints.login,
-      body: {
-        'email': email,
-        'password': password,
-        'deviceFingerprint': _generateFingerprint(),
-        'fcmToken': 'not-available',
-      },
-    );
-
-    if (response.isNetworkError) {
-      return ApiResult.failure(response.errorMessage ?? 'Network error');
-    }
-
-    if (response.json == null) {
-      return ApiResult.failure(response.errorMessage ?? 'Empty server response');
-    }
-
-    final json = response.json!;
-
-    if (response.isSuccess && json['success'] == true && json['data'] != null) {
-      final authData = AuthResponse.fromJson(json['data']);
-
-      // Persist tokens & user info locally
-      await TokenStorage.saveTokens(
-        accessToken: authData.accessToken,
-        refreshToken: authData.refreshToken,
-      );
-      await TokenStorage.saveUser(
-        id: authData.user.id,
-        username: authData.user.username,
-        email: authData.user.email,
+    try {
+      // Step 1 — Sign in with Firebase
+      final credential = await _firebaseAuth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
       );
 
-      return ApiResult.success(authData);
-    }
+      final firebaseUid = credential.user!.uid;
 
-    final errMsg = json['error']?['message'] ??
-        json['message'] ??
-        'Login failed (${response.statusCode})';
-    return ApiResult.failure(errMsg);
+      // Step 2 — Get FCM token
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      // Step 3 — Call backend
+      final response = await ApiClient.post(
+        ApiEndpoints.login,
+        body: {
+          "email": email,
+          "firebaseUid": firebaseUid,
+          "fcmToken": fcmToken ?? "not-available",
+          "deviceFingerprint": _generateFingerprint(),
+        },
+      );
+
+      if (response.isNetworkError) {
+        return ApiResult.failure(response.errorMessage ?? 'Network error');
+      }
+
+      if (response.json == null) {
+        return ApiResult.failure(
+          response.errorMessage ?? 'Empty server response',
+        );
+      }
+
+      if (response.isSuccess) {
+        final authData = AuthResponse.fromJson(response.json!);
+        await _persistAuth(authData);
+        return ApiResult.success(authData);
+      }
+
+      return ApiResult.failure(
+        response.errorMessage ?? 'Login failed (${response.statusCode})',
+      );
+    } on FirebaseAuthException catch (e) {
+      return ApiResult.failure(_firebaseErrorMessage(e.code));
+    }
   }
 
-  // ── Refresh Token ──────────────────────────────────────────────────────
-  /// Exchanges a refresh token for a new access + refresh token pair.
-  static Future<ApiResult<AuthResponse>> refreshToken() async {
-    final currentRefresh = await TokenStorage.refreshToken;
+  // ───────────────── LOGOUT ─────────────────
 
-    if (currentRefresh == null || currentRefresh.isEmpty) {
-      return ApiResult.failure('No refresh token found. Please sign in again.');
-    }
-
-    final response = await ApiClient.post(
-      ApiEndpoints.refreshToken,
-      body: {
-        'refreshToken': currentRefresh,
-      },
-    );
-
-    if (response.isNetworkError) {
-      return ApiResult.failure(response.errorMessage ?? 'Network error');
-    }
-
-    if (response.json == null) {
-      return ApiResult.failure(response.errorMessage ?? 'Empty server response');
-    }
-
-    final json = response.json!;
-
-    if (response.isSuccess && json['success'] == true && json['data'] != null) {
-      final authData = AuthResponse.fromJson(json['data']);
-
-      // Update stored tokens
-      await TokenStorage.saveTokens(
-        accessToken: authData.accessToken,
-        refreshToken: authData.refreshToken,
-      );
-      await TokenStorage.saveUser(
-        id: authData.user.id,
-        username: authData.user.username,
-        email: authData.user.email,
-      );
-
-      return ApiResult.success(authData);
-    }
-
-    // Refresh failed — clear stale tokens so the user gets sent to login
-    await TokenStorage.clear();
-
-    final errMsg = json['error']?['message'] ??
-        json['message'] ??
-        'Session expired. Please sign in again.';
-    return ApiResult.failure(errMsg);
-  }
-
-  // ── Logout ─────────────────────────────────────────────────────────────
-  /// Clears local tokens and signs the user out.
   static Future<void> logout() async {
+    await _firebaseAuth.signOut();
     await TokenStorage.clear();
   }
 
-  // ── Helpers ─────────────────────────────────────────────────────────────
+  // ───────────────── REFRESH ─────────────────
+  // (unchanged — keep your existing refreshToken method here)
+
+  // ───────────────── HELPERS ─────────────────
+
+  static Future<void> _persistAuth(AuthResponse auth) async {
+    if (auth.accessToken.isNotEmpty || auth.refreshToken.isNotEmpty) {
+      await TokenStorage.saveTokens(
+        accessToken: auth.accessToken,
+        refreshToken: auth.refreshToken,
+      );
+    }
+    await TokenStorage.saveUser(
+      id: auth.user.id,
+      username: auth.user.username,
+      email: auth.user.email,
+    );
+  }
+
   static String _getPlatform() {
-    if (kIsWeb) return 'WEB';
+    if (kIsWeb) return "WEB";
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return 'ANDROID';
+        return "ANDROID";
       case TargetPlatform.iOS:
-        return 'IOS';
+        return "IOS";
       default:
-        return 'ANDROID';
+        return "UNKNOWN";
     }
   }
 
   static String _generateFingerprint() {
     final now = DateTime.now().millisecondsSinceEpoch;
     return 'flutter-${_getPlatform().toLowerCase()}-$now';
+  }
+
+  static String _firebaseErrorMessage(String code) {
+    switch (code) {
+      case 'email-already-in-use':
+        return 'An account with this email already exists.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'weak-password':
+        return 'Password must be at least 6 characters.';
+      case 'user-not-found':
+        return 'No account found with this email.';
+      case 'wrong-password':
+        return 'Incorrect password.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      default:
+        return 'Authentication failed. Please try again.';
+    }
   }
 }

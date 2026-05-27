@@ -3,7 +3,7 @@
 class ApiEndpoints {
   ApiEndpoints._(); // prevent instantiation
 
-  static const String baseUrl = 'https://scrooldoom-backend.onrender.com';
+  static const String baseUrl = 'https://doomscroll-aotr.onrender.com';
   static const String _apiVersion = '/api/v1';
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -16,9 +16,18 @@ class ApiEndpoints {
   static const String profile = '$_apiVersion/user/profile';
   static const String updateProfile = '$_apiVersion/user/profile';
 
+  // ── App Limits ────────────────────────────────────────────────────────────
+  static const String limits = '$_apiVersion/limits';
+  static String limitById(String id) => '$_apiVersion/limits/$id';
+
   // ── App Locks ─────────────────────────────────────────────────────────────
   static const String locks = '$_apiVersion/locks';
   static const String emergencyUnlock = '$_apiVersion/locks/emergency-unlock';
+
+  // ── Usage Tracking ────────────────────────────────────────────────────────
+  static const String usageSync = '$_apiVersion/usage/sync';
+  static const String usageReport = '$_apiVersion/usage/report';
+  static const String usageSummary = '$_apiVersion/usage/summary';
 
   /// Build a full URL from a relative endpoint path.
   static Uri uri(String endpoint) => Uri.parse('$baseUrl$endpoint');

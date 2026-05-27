@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "372365108449",
+    "project_id": "doom-scroll-1f",
+    "storage_bucket": "doom-scroll-1f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:372365108449:android:c0f6466d459b6dd22f83a0",
+        "android_client_info": {
+          "package_name": "com.example.doom_scroll"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHPnEOdtSCC7cECaiyPSzk03qMHqud_Oc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
