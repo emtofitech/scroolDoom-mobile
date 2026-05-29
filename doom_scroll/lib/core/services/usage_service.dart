@@ -123,7 +123,7 @@ class UsageService {
       }
 
       return ApiResult.failure(
-        json['error']?['message'] ?? 'Sync failed (${response.statusCode})',
+        _errMsg(json, response, 'Sync failed (${response.statusCode})'),
       );
     } catch (e) {
       return ApiResult.failure(e.toString());
@@ -179,7 +179,7 @@ class UsageService {
       }
 
       return ApiResult.failure(
-        json['error']?['message'] ?? 'Report failed (${response.statusCode})',
+        _errMsg(json, response, 'Report failed (${response.statusCode})'),
       );
     } catch (e) {
       return ApiResult.failure(e.toString());
@@ -230,7 +230,7 @@ class UsageService {
       }
 
       return ApiResult.failure(
-        json['error']?['message'] ?? 'Summary failed (${response.statusCode})',
+        _errMsg(json, response, 'Summary failed (${response.statusCode})'),
       );
     } catch (e) {
       return ApiResult.failure(e.toString());
@@ -238,6 +238,16 @@ class UsageService {
   }
 
   // ── Internal helpers ──────────────────────────────────────────────────
+
+  static String _errMsg(Map<String, dynamic>? json, ApiResponse response, String fallback) {
+    final err = json?['error'];
+    if (err is Map) {
+      return err['message'] ?? fallback;
+    } else if (err is String) {
+      return err;
+    }
+    return json?['message'] ?? response.errorMessage ?? fallback;
+  }
 
   static Future<String?> _requireToken() async {
     final t = await TokenStorage.accessToken;

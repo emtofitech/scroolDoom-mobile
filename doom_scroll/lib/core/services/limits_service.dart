@@ -18,8 +18,13 @@ class LimitsService {
 
   /// Parse the standard API error message from a response.
   static String _errMsg(ApiResponse response, String fallback) {
-    return response.json?['error']?['message'] ??
-        response.json?['message'] ??
+    final err = response.json?['error'];
+    if (err is Map) {
+      return err['message'] ?? response.errorMessage ?? '$fallback (${response.statusCode})';
+    } else if (err is String) {
+      return err;
+    }
+    return response.json?['message'] ??
         response.errorMessage ??
         '$fallback (${response.statusCode})';
   }
@@ -55,16 +60,18 @@ class LimitsService {
 
   // ── POST — create a new limit ──────────────────────────────────────────
   static Future<ApiResult<AppLimit>> create({
-    required String appId,
-    required int dailyLimitSeconds,
+    required String packageName,
+    required String appLabel,
+    required int dailyLimitMinutes,
   }) async {
     try {
       final token = await _token();
       final response = await ApiClient.post(
         ApiEndpoints.limits,
         body: {
-          'appId': appId,
-          'dailyLimitSeconds': dailyLimitSeconds,
+          'packageName': packageName,
+          'appLabel': appLabel,
+          'dailyLimitMinutes': dailyLimitMinutes,
         },
         token: token,
       );
@@ -92,16 +99,14 @@ class LimitsService {
   // ── PUT — update an existing limit ─────────────────────────────────────
   static Future<ApiResult<AppLimit>> update({
     required String id,
-    required int dailyLimitSeconds,
-    bool isActive = true,
+    required int dailyLimitMinutes,
   }) async {
     try {
       final token = await _token();
       final response = await ApiClient.put(
         ApiEndpoints.limitById(id),
         body: {
-          'dailyLimitSeconds': dailyLimitSeconds,
-          'isActive': isActive,
+          'dailyLimitMinutes': dailyLimitMinutes,
         },
         token: token,
       );
