@@ -18,9 +18,12 @@ class AppBottomNav extends StatelessWidget {
         context.go(AppRoutes.limits);
         break;
       case 2:
-        context.go(AppRoutes.stats);
+        context.go(AppRoutes.streaks);
         break;
       case 3:
+        context.go(AppRoutes.accountability);
+        break;
+      case 4:
         context.go(AppRoutes.lockout);
         break;
     }
@@ -38,7 +41,8 @@ class AppBottomNav extends StatelessWidget {
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         BottomNavigationBarItem(icon: Icon(Icons.timer), label: "Limits"),
-        BottomNavigationBarItem(icon: Icon(Icons.insights), label: "Stats"),
+        BottomNavigationBarItem(icon: Icon(Icons.local_fire_department_rounded), label: "Streaks"),
+        BottomNavigationBarItem(icon: Icon(Icons.people_alt_rounded), label: "Accountability"),
         BottomNavigationBarItem(icon: Icon(Icons.lock_sharp), label: "Lockout"),
       ],
     );

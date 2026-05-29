@@ -6,6 +6,8 @@ import '../../pages/home.dart';
 import '../../pages/app_limits.dart';
 import '../../pages/statistics.dart';
 import '../../pages/lockout.dart';
+import '../../pages/streaks.dart';
+import '../../pages/accountability.dart';
 import '../../auth_pages/signin.dart';
 import '../../auth_pages/signup.dart';
 
@@ -19,6 +21,8 @@ class AppRoutes {
   static const String home = '/home';
   static const String limits = '/limits';
   static const String stats = '/stats';
+  static const String streaks = '/streaks';
+  static const String accountability = '/accountability';
   static const String lockout = '/lockout';
 }
 
@@ -56,6 +60,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.stats,
       builder: (context, state) => const StatisticsPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.streaks,
+      builder: (context, state) => const StreaksPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.accountability,
+      builder: (context, state) => const AccountabilityPage(),
     ),
     GoRoute(
       path: AppRoutes.lockout,

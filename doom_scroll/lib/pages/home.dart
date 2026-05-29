@@ -1,18 +1,21 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/colors.dart';
 import '../widgets/bottom_nav.dart';
+import '../core/state/auth_controller.dart';
+import '../core/services/token_storage.dart';
 
 // Extra colours not in AppColors
 const _amber = Color(0xFFFFAA00);
 const _green = Color(0xFF00E676);
 
 // ─── Home Page ────────────────────────────────────────────────────────────────
-class HomePage extends StatelessWidget {
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: AppColors.bg,
       bottomNavigationBar: const AppBottomNav(currentIndex: 0),
@@ -79,15 +82,24 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    "Welcome back,\nUser.",
-                    style: TextStyle(
-                      color: AppColors.text,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      height: 1.1,
-                      letterSpacing: -0.5,
-                    ),
+                  FutureBuilder<String?>(
+                    future: TokenStorage.username,
+                    builder: (context, snapshot) {
+                      final name = snapshot.data ?? 'User';
+                      final welcomeText = ref.watch(authControllerProvider).isGuest
+                          ? 'Welcome,\nGuest.'
+                          : 'Welcome back,\n$name.';
+                      return Text(
+                        welcomeText,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          height: 1.1,
+                          letterSpacing: -0.5,
+                        ),
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 22),

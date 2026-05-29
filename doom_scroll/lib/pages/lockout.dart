@@ -113,7 +113,7 @@ class _LockoutPageState extends State<LockoutPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF031415),
 
-      bottomNavigationBar: const AppBottomNav(currentIndex: 3),
+      bottomNavigationBar: const AppBottomNav(currentIndex: 4),
       body: Stack(
         children: [
           /// GLOW

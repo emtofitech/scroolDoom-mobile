@@ -81,7 +81,7 @@ class LandingPage extends StatelessWidget {
 
               /// GET STARTED BUTTON
               GestureDetector(
-                onTap: () => context.go(AppRoutes.signUp),
+                onTap: () => context.go(AppRoutes.home),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -91,7 +91,7 @@ class LandingPage extends StatelessWidget {
                   ),
                   child: const Center(
                     child: Text(
-                      "Get Started",
+                      "Skip Signup For Now",
                       style: TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.bold,
