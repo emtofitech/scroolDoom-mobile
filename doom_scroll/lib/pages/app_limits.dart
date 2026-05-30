@@ -7,8 +7,10 @@ import 'package:installed_apps/installed_apps.dart';
 
 import '../core/theme/colors.dart';
 import '../core/models/limit_models.dart';
+import '../core/models/limit_status.dart';
 import '../core/services/foreground_monitor_service.dart';
 import '../core/services/limits_service.dart';
+import '../core/services/usage_monitor_service.dart';
 import '../core/services/usage_service.dart';
 import '../core/state/auth_controller.dart';
 import '../core/router/app_router.dart';
@@ -27,13 +29,31 @@ class AppLimitsPage extends ConsumerStatefulWidget {
 
 class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
   List<AppLimit> _limits = [];
+  Map<String, LimitStatus> _statuses = {};
   bool _isLoading = true;
   String? _error;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadAll();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshStatuses());
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshStatuses() async {
+    final result = await LimitsService.getStatuses();
+    if (result.isSuccess && result.data != null && mounted) {
+      setState(() {
+        _statuses = {for (final s in result.data!) s.packageName: s};
+      });
+    }
   }
 
   Future<void> _loadAll() async {
@@ -79,6 +99,11 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
     if (!mounted) return;
 
     if (result.isSuccess) {
+      final statusResult = await LimitsService.getStatuses();
+      if (statusResult.isSuccess && statusResult.data != null) {
+        _statuses = {for (final s in statusResult.data!) s.packageName: s};
+      }
+
       setState(() {
         _limits = result.data!;
         _isLoading = false;
@@ -119,11 +144,14 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
     final packages = _limits.map((l) => l.packageName).toSet();
     if (packages.isEmpty) {
       ForegroundMonitorService.instance.stop();
+      UsageMonitorService.instance.stop();
       return;
     }
 
+    final limitsMap = {for (final l in _limits) l.packageName: l};
     final token = await TokenStorage.accessToken;
     ForegroundMonitorService.instance.start(packages, authToken: token);
+    UsageMonitorService.instance.start(packages, limits: limitsMap);
 
     if (!await UsageService.hasUsagePermission()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -144,19 +172,19 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
     }
   }
 
-  Future<void> _createLimit(String packageName, String appLabel) async {
+  Future<void> _createLimit(String packageName, String appLabel, {int dailyLimitMinutes = 30}) async {
     setState(() => _isLoading = true);
 
     final result = await LimitsService.create(
       packageName: packageName,
       appLabel: appLabel,
-      dailyLimitMinutes: 30, // Default to 30 mins
+      dailyLimitMinutes: dailyLimitMinutes,
     );
 
     if (!mounted) return;
 
     if (result.isSuccess) {
-      _showSnackBar('$appLabel added with a 30m limit');
+      _showSnackBar('$appLabel added with a ${dailyLimitMinutes}m limit');
       _loadAll();
     } else {
       setState(() => _isLoading = false);
@@ -348,9 +376,60 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
         trackedPackageNames: _limits.map((l) => l.packageName).toSet(),
         onAppSelected: (String packageName, String appLabel) async {
           Navigator.pop(context);
-          await _createLimit(packageName, appLabel);
+          final minutes = await _promptLimitMinutes(context, appLabel);
+          if (minutes != null && mounted) {
+            await _createLimit(packageName, appLabel, dailyLimitMinutes: minutes);
+          }
         },
       ),
+    );
+  }
+
+  Future<int?> _promptLimitMinutes(BuildContext context, String appLabel) {
+    return showDialog<int>(
+      context: context,
+      builder: (ctx) {
+        double val = 30;
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              'Limit for $appLabel',
+              style: const TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${val.round()} minutes',
+                  style: const TextStyle(color: AppColors.cyan, fontSize: 32, fontWeight: FontWeight.w800),
+                ),
+                Slider(
+                  value: val,
+                  min: 1,
+                  max: 240,
+                  divisions: 239,
+                  activeColor: AppColors.cyan,
+                  inactiveColor: AppColors.outline,
+                  thumbColor: Colors.white,
+                  onChanged: (v) => setDialogState(() => val = v),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, val.round()),
+                child: const Text('Add', style: TextStyle(color: AppColors.cyan, fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -483,6 +562,7 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
                           else
                             ..._limits.map((limit) => _AppLimitCard(
                                   limit: limit,
+                                  status: _statuses[limit.packageName],
                                   isGuest: ref.read(authControllerProvider).isGuest,
                                   onLimitChanged: (val) => _updateLimit(limit, val),
                                   onRemove: () => _removeApp(limit),
@@ -611,6 +691,7 @@ class _ReclaimCard extends StatelessWidget {
 
 class _AppLimitCard extends StatefulWidget {
   final AppLimit limit;
+  final LimitStatus? status;
   final bool isGuest;
   final Future<void> Function(int) onLimitChanged;
   final VoidCallback onRemove;
@@ -618,6 +699,7 @@ class _AppLimitCard extends StatefulWidget {
 
   const _AppLimitCard({
     required this.limit,
+    this.status,
     required this.isGuest,
     required this.onLimitChanged,
     required this.onRemove,
@@ -763,6 +845,24 @@ class _AppLimitCardState extends State<_AppLimitCard> {
                   ),
                 ),
               ),
+              if (widget.status?.exceeded == true) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.red.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Exceeded',
+                    style: TextStyle(
+                      color: AppColors.red,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: widget.isGuest ? widget.onPromptGuest : widget.onRemove,
@@ -786,8 +886,8 @@ class _AppLimitCardState extends State<_AppLimitCard> {
               overlayColor: accent.withOpacity(0.15),
             ),
             child: Slider(
-              value: _currentSliderVal.clamp(5.0, 240.0),
-              min: 5,
+              value: _currentSliderVal.clamp(1.0, 240.0),
+              min: 1,
               max: 240,
               onChanged: (value) {
                 if (widget.isGuest) {

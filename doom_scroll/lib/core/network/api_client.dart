@@ -212,6 +212,48 @@ class ApiClient {
     }
   }
 
+  // ── PATCH ────────────────────────────────────────────────────────────────
+  static Future<ApiResponse> patch(
+    String endpoint, {
+    String? token,
+  }) async {
+    final uri = ApiEndpoints.uri(endpoint);
+    debugPrint('📡 [PATCH] $uri');
+
+    try {
+      var response = await http
+          .patch(uri, headers: _headers(token: token))
+          .timeout(_timeout, onTimeout: () {
+        throw TimeoutException('Request timed out.');
+      });
+
+      debugPrint('✅ [${response.statusCode}] ${response.body}');
+
+      if (response.statusCode == 401 &&
+          endpoint != ApiEndpoints.refreshToken &&
+          endpoint != ApiEndpoints.slidingRefresh &&
+          endpoint != ApiEndpoints.firebaseRefresh) {
+        final success = await _refreshTokens();
+        if (success) {
+          final newToken = await TokenStorage.accessToken;
+          debugPrint('🔄 [APIClient] Retrying [PATCH] $uri with new token');
+          response = await http
+              .patch(uri, headers: _headers(token: newToken))
+              .timeout(_timeout, onTimeout: () {
+            throw TimeoutException('Request timed out during retry.');
+          });
+          debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+        }
+      }
+
+      return ApiResponse._fromHttp(response);
+    } on TimeoutException catch (e) {
+      return ApiResponse.error(e.message ?? 'Request timed out.');
+    } catch (e) {
+      return ApiResponse.error(e.toString());
+    }
+  }
+
   // ── DELETE ──────────────────────────────────────────────────────────────
   static Future<ApiResponse> delete(
     String endpoint, {

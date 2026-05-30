@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../models/api_result.dart';
 import '../models/limit_models.dart';
+import '../models/limit_status.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import 'token_storage.dart';
@@ -151,6 +152,35 @@ class LimitsService {
       }
 
       return ApiResult.failure(_errMsg(response, 'Failed to delete limit'));
+    } catch (e) {
+      return ApiResult.failure(e.toString());
+    }
+  }
+
+  // ── GET limits/status ───────────────────────────────────────────────
+  static Future<ApiResult<List<LimitStatus>>> getStatuses() async {
+    try {
+      final token = await _token();
+      final response = await ApiClient.get(ApiEndpoints.limitsStatus, token: token);
+
+      if (response.isNetworkError) {
+        return ApiResult.failure(response.errorMessage ?? 'Network error');
+      }
+
+      final json = response.json;
+      if (json == null) {
+        return ApiResult.failure(response.errorMessage ?? 'Empty response');
+      }
+
+      if (response.isSuccess && json['success'] == true) {
+        final list = (json['data'] as List<dynamic>?)
+                ?.map((e) => LimitStatus.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [];
+        return ApiResult.success(list);
+      }
+
+      return ApiResult.failure(_errMsg(response, 'Failed to load limit statuses'));
     } catch (e) {
       return ApiResult.failure(e.toString());
     }

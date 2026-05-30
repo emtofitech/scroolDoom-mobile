@@ -24,7 +24,7 @@ class AppBottomNav extends StatelessWidget {
         context.go(AppRoutes.accountability);
         break;
       case 4:
-        context.go(AppRoutes.lockout);
+        context.go(AppRoutes.breaches);
         break;
     }
   }
@@ -43,7 +43,7 @@ class AppBottomNav extends StatelessWidget {
         BottomNavigationBarItem(icon: Icon(Icons.timer), label: "Limits"),
         BottomNavigationBarItem(icon: Icon(Icons.local_fire_department_rounded), label: "Streaks"),
         BottomNavigationBarItem(icon: Icon(Icons.people_alt_rounded), label: "Accountability"),
-        BottomNavigationBarItem(icon: Icon(Icons.lock_sharp), label: "Lockout"),
+        BottomNavigationBarItem(icon: Icon(Icons.warning_rounded), label: "Breaches"),
       ],
     );
   }

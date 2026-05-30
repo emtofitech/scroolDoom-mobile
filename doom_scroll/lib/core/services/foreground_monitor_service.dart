@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
+import '../models/limit_models.dart';
 import 'advanced_usage_service.dart';
+import 'breach_service.dart';
 
 class ForegroundMonitorService {
   ForegroundMonitorService._();
@@ -12,6 +14,7 @@ class ForegroundMonitorService {
 
   Timer? _timer;
   Set<String> _trackedPackages = {};
+  Map<String, AppLimit> _limits = {};
   String? _lastForeground;
   String? _lastTrackedOpen;
   bool _isRunning = false;
@@ -21,9 +24,14 @@ class ForegroundMonitorService {
 
   String? _authToken;
 
-  void start(Set<String> trackedPackages, {String? authToken}) {
+  /// Tracks which blocked apps (dailyLimitMinutes == 0) were already reported
+  /// so we don't spam the API on every 5s poll.
+  final Set<String> _blockedReported = {};
+
+  void start(Set<String> trackedPackages, {String? authToken, Map<String, AppLimit>? limits}) {
     if (kIsWeb) return;
     _trackedPackages = trackedPackages;
+    _limits = limits ?? {};
     _authToken = authToken;
     _isRunning = true;
     _timer?.cancel();
@@ -32,8 +40,9 @@ class ForegroundMonitorService {
     debugPrint('🟢 [FOREGROUND] Started — monitoring ${trackedPackages.length} apps');
   }
 
-  void updateTrackedApps(Set<String> trackedPackages, {String? authToken}) {
+  void updateTrackedApps(Set<String> trackedPackages, {String? authToken, Map<String, AppLimit>? limits}) {
     _trackedPackages = trackedPackages;
+    if (limits != null) _limits = limits;
     if (authToken != null) _authToken = authToken;
     if (_isRunning) {
       _stopNativeService();
@@ -47,6 +56,7 @@ class ForegroundMonitorService {
     _isRunning = false;
     _lastForeground = null;
     _lastTrackedOpen = null;
+    _blockedReported.clear();
     _stopNativeService();
     debugPrint('🔴 [FOREGROUND] Stopped');
   }
@@ -124,6 +134,17 @@ class ForegroundMonitorService {
       _lastTrackedOpen = current;
       debugPrint('📤 [FOREGROUND] Tracked app opened: $current');
       unawaited(AdvancedUsageService.recordAppOpen(packageName: current));
+
+      // Report blocked-app breach if dailyLimitMinutes == 0
+      final limit = _limits[current];
+      if (limit != null && limit.dailyLimitMinutes == 0 && !_blockedReported.contains(current)) {
+        _blockedReported.add(current);
+        debugPrint('🚫 [FOREGROUND] Blocked app opened: $current');
+        unawaited(BreachService.reportBlockedApp(
+          packageName: current,
+          appLabel: limit.appLabel,
+        ));
+      }
     }
 
     _lastForeground = current;

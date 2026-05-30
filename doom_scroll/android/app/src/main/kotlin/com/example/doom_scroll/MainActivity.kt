@@ -112,10 +112,11 @@ class MainActivity : FlutterActivity() {
     private fun detectForegroundApp(): String? {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val now = System.currentTimeMillis()
-        val windowMs = 15000L
+        val eventWindowMs = 60_000L
+        val statsWindowMs = 300_000L
 
         // 1. Try queryEvents first (most precise)
-        val events = usm.queryEvents(now - windowMs, now)
+        val events = usm.queryEvents(now - eventWindowMs, now)
         var eventCount = 0
         var foreground: String? = null
         while (events.hasNextEvent()) {
@@ -133,9 +134,9 @@ class MainActivity : FlutterActivity() {
 
         if (foreground != null) return foreground
 
-        // 2. Fallback: queryUsageStats (more reliable across OEMs)
+        // 2. Fallback: queryUsageStats with a wide window (more reliable across OEMs)
         Log.d(TAG, "queryEvents found no foreground — trying queryUsageStats")
-        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, now - windowMs, now)
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - statsWindowMs, now)
         if (stats != null && stats.isNotEmpty()) {
             stats
                 .sortedByDescending { it.lastTimeUsed }

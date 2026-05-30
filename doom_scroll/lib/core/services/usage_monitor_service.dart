@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+
+// ignore_for_file: unawaited_futures
+import '../models/limit_models.dart';
 import '../models/usage_models.dart';
-import '../services/usage_service.dart';
+import 'breach_service.dart';
+import 'usage_service.dart';
 
 /// Singleton that periodically calls POST /api/v1/usage/report and
 /// broadcasts any [NewLock] events so the UI can react (e.g. navigate
@@ -20,6 +24,7 @@ class UsageMonitorService {
   // ── State ─────────────────────────────────────────────────────────────
   Timer? _timer;
   Set<String> _trackedAppIds = {};
+  Map<String, AppLimit> _limits = {};
   bool _isRunning = false;
 
   // ── Streams ───────────────────────────────────────────────────────────
@@ -41,14 +46,17 @@ class UsageMonitorService {
 
   /// Starts the periodic monitor for [trackedAppIds].
   /// Safe to call multiple times — restarts if already running.
-  void start(Set<String> trackedAppIds) {
+  void start(Set<String> trackedAppIds, {Map<String, AppLimit>? limits}) {
     if (kIsWeb || trackedAppIds.isEmpty) return;
 
     _trackedAppIds = trackedAppIds;
+    _limits = limits ?? {};
     _isRunning = true;
+    _screenTimeReported.clear();
 
     // Cancel any existing timer before creating a new one
     _timer?.cancel();
+    _tick();
     _timer = Timer.periodic(_interval, (_) => _tick());
 
     debugPrint('🟢 [MONITOR] Started — tracking ${_trackedAppIds.length} apps '
@@ -56,8 +64,12 @@ class UsageMonitorService {
   }
 
   /// Updates the set of tracked apps without restarting the timer.
-  void updateTrackedApps(Set<String> trackedAppIds) {
+  void updateTrackedApps(Set<String> trackedAppIds, {Map<String, AppLimit>? limits}) {
     _trackedAppIds = trackedAppIds;
+    if (limits != null) {
+      _limits = limits;
+      _screenTimeReported.clear();
+    }
     debugPrint('🔄 [MONITOR] Updated to ${_trackedAppIds.length} tracked apps');
   }
 
@@ -66,6 +78,7 @@ class UsageMonitorService {
     _timer?.cancel();
     _timer = null;
     _isRunning = false;
+    _screenTimeReported.clear();
     debugPrint('🔴 [MONITOR] Stopped');
   }
 
@@ -77,6 +90,10 @@ class UsageMonitorService {
   }
 
   // ── Internal tick ─────────────────────────────────────────────────────
+
+  /// Track which apps already had a screen-time breach reported this session
+  /// so we don't spam the API on every 60s poll.
+  final Set<String> _screenTimeReported = {};
 
   Future<void> _tick() async {
     if (_trackedAppIds.isEmpty) return;
@@ -90,28 +107,62 @@ class UsageMonitorService {
       return;
     }
 
-    // 2. Report to backend — backend evaluates limits and returns warnings/locks
+    // 2. Report to backend (non-critical — don't block if it fails)
     final result = await UsageService.reportUsageSnapshot(usageMap);
 
-    if (!result.isSuccess) {
-      debugPrint('⚠️ [MONITOR] Report failed: ${result.error}');
-      return;
+    if (result.isSuccess) {
+      final report = result.data!;
+
+      // 3. Broadcast warnings (approaching limit)
+      for (final warning in report.warnings) {
+        debugPrint('⚠️ [MONITOR] Warning level ${warning.warningLevel} '
+            'for ${warning.appId} (${warning.usageSeconds}s)');
+        _warningController.add(warning);
+      }
+
+      // 4. Broadcast new locks (limit exceeded) and report screen-time breaches
+      for (final lock in report.newLocks) {
+        debugPrint('🔒 [MONITOR] New lock for ${lock.appId} '
+            'until ${lock.lockedUntil.toLocal()}');
+        _lockController.add(lock);
+
+        final limit = _limits[lock.appId];
+        if (limit != null) {
+          final actualSeconds = usageMap[lock.appId] ?? 0;
+          _screenTimeReported.add(lock.appId);
+          BreachService.reportScreenTime(
+            packageName: lock.appId,
+            appLabel: limit.appLabel,
+            limitMinutes: limit.dailyLimitMinutes,
+            actualMinutes: actualSeconds ~/ 60,
+          );
+        }
+      }
+    } else {
+      debugPrint('⚠️ [MONITOR] Report failed: ${result.error} — '
+          'falling back to client-side detection');
     }
 
-    final report = result.data!;
+    // 5. Client-side screen-time breach detection (runs regardless of backend)
+    //    Catches breaches even when /usage/report returns an error.
+    for (final entry in usageMap.entries) {
+      final appId = entry.key;
+      final actualSeconds = entry.value;
+      final limit = _limits[appId];
+      if (limit == null) continue;
 
-    // 3. Broadcast warnings (approaching limit)
-    for (final warning in report.warnings) {
-      debugPrint('⚠️ [MONITOR] Warning level ${warning.warningLevel} '
-          'for ${warning.appId} (${warning.usageSeconds}s)');
-      _warningController.add(warning);
-    }
-
-    // 4. Broadcast new locks (limit exceeded)
-    for (final lock in report.newLocks) {
-      debugPrint('🔒 [MONITOR] New lock for ${lock.appId} '
-          'until ${lock.lockedUntil.toLocal()}');
-      _lockController.add(lock);
+      final limitSeconds = limit.dailyLimitMinutes * 60;
+      if (actualSeconds > limitSeconds && !_screenTimeReported.contains(appId)) {
+        _screenTimeReported.add(appId);
+        debugPrint('🚫 [MONITOR] Client-side screen-time breach: '
+            '$appId (${actualSeconds}s > ${limitSeconds}s)');
+        BreachService.reportScreenTime(
+          packageName: appId,
+          appLabel: limit.appLabel,
+          limitMinutes: limit.dailyLimitMinutes,
+          actualMinutes: actualSeconds ~/ 60,
+        );
+      }
     }
   }
 }

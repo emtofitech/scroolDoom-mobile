@@ -100,9 +100,10 @@ class MonitorService : Service() {
     private fun detectForegroundApp(): String? {
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val now = System.currentTimeMillis()
-        val windowMs = 15000L
+        val eventWindowMs = 60_000L
+        val statsWindowMs = 300_000L
 
-        val events = usm.queryEvents(now - windowMs, now)
+        val events = usm.queryEvents(now - eventWindowMs, now)
         var foreground: String? = null
         while (events.hasNextEvent()) {
             val e = UsageEvents.Event()
@@ -115,7 +116,7 @@ class MonitorService : Service() {
         }
         if (foreground != null) return foreground
 
-        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_BEST, now - windowMs, now)
+        val stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - statsWindowMs, now)
         if (stats != null && stats.isNotEmpty()) {
             return stats
                 .sortedByDescending { it.lastTimeUsed }
@@ -175,7 +176,7 @@ class MonitorService : Service() {
         return builder
             .setContentTitle("DoomScroll")
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setPriority(Notification.PRIORITY_LOW)
             .build()

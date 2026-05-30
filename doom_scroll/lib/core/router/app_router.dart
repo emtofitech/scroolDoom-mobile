@@ -8,6 +8,7 @@ import '../../pages/statistics.dart';
 import '../../pages/lockout.dart';
 import '../../pages/streaks.dart';
 import '../../pages/accountability.dart';
+import '../../pages/breaches.dart';
 import '../../auth_pages/signin.dart';
 import '../../auth_pages/signup.dart';
 
@@ -24,6 +25,7 @@ class AppRoutes {
   static const String streaks = '/streaks';
   static const String accountability = '/accountability';
   static const String lockout = '/lockout';
+  static const String breaches = '/breaches';
 }
 
 /// Global navigator key — lets services outside the widget tree push routes.
@@ -75,6 +77,10 @@ final appRouter = GoRouter(
         final appName = state.uri.queryParameters['app'] ?? 'Instagram';
         return LockoutPage(appName: appName);
       },
+    ),
+    GoRoute(
+      path: AppRoutes.breaches,
+      builder: (context, state) => const BreachesPage(),
     ),
   ],
 );

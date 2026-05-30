@@ -21,6 +21,7 @@ class ApiEndpoints {
   // ── App Limits ────────────────────────────────────────────────────────────
   static const String limits = '$_apiVersion/limits';
   static String limitById(String id) => '$_apiVersion/limits/$id';
+  static const String limitsStatus = '$_apiVersion/limits/status';
 
   // ── App Locks ─────────────────────────────────────────────────────────────
   static const String locks = '$_apiVersion/locks';
@@ -41,6 +42,15 @@ class ApiEndpoints {
   static const String usageNotifications = '$_apiVersion/usage/notifications';
   static String usageNotificationDelivered(String deliveryId) => '$_apiVersion/usage/notifications/$deliveryId/delivered';
   static String usageNotificationOpened(String deliveryId) => '$_apiVersion/usage/notifications/$deliveryId/opened';
+
+  // ── Breaches ──────────────────────────────────────────────────────────────
+  static const String breaches = '$_apiVersion/breaches';
+  static const String breachStreak = '$_apiVersion/breaches/streak';
+  static const String breachScreenTime = '$_apiVersion/breaches/screen-time';
+  static const String breachBlockedApp = '$_apiVersion/breaches/blocked-app';
+  static String breachAcknowledge(String breachId) => '$_apiVersion/breaches/$breachId/acknowledge';
+  static const String breachesMe = '$_apiVersion/breaches/me';
+  static String breachesMeByType(String breachType) => '$_apiVersion/breaches/me/type/$breachType';
 
   /// Build a full URL from a relative endpoint path.
   static Uri uri(String endpoint) => Uri.parse('$baseUrl$endpoint');
