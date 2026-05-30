@@ -262,7 +262,8 @@ class ApiResponse {
   final String? errorMessage;
 
   bool get isSuccess =>
-      statusCode != null && (statusCode == 200 || statusCode == 201);
+      statusCode != null &&
+      (statusCode == 200 || statusCode == 201 || statusCode == 204);
 
   bool get isNetworkError => statusCode == null;
 
@@ -272,10 +273,11 @@ class ApiResponse {
     if (response.body.isEmpty) {
       return ApiResponse._(
         statusCode: response.statusCode,
-        errorMessage:
-            response.statusCode == 403
+        errorMessage: response.statusCode == 204
+            ? null
+            : (response.statusCode == 403
                 ? 'Access denied. Please try signing in again.'
-                : 'Server error (${response.statusCode}). Please try again.',
+                : 'Server error (${response.statusCode}). Please try again.'),
       );
     }
 

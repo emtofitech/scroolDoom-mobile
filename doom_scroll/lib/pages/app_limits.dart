@@ -578,7 +578,7 @@ class _ReclaimCard extends StatelessWidget {
 class _AppLimitCard extends StatefulWidget {
   final AppLimit limit;
   final bool isGuest;
-  final ValueChanged<int> onLimitChanged;
+  final Future<void> Function(int) onLimitChanged;
   final VoidCallback onRemove;
   final VoidCallback onPromptGuest;
 
@@ -596,6 +596,8 @@ class _AppLimitCard extends StatefulWidget {
 
 class _AppLimitCardState extends State<_AppLimitCard> {
   late double _currentSliderVal;
+  bool _isSaving = false;
+  bool _hasSaved = false;
 
   @override
   void initState() {
@@ -606,7 +608,48 @@ class _AppLimitCardState extends State<_AppLimitCard> {
   @override
   void didUpdateWidget(covariant _AppLimitCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _currentSliderVal = widget.limit.dailyLimitMinutes.toDouble();
+    if (!_isSaving) {
+      _currentSliderVal = widget.limit.dailyLimitMinutes.toDouble();
+    }
+  }
+
+  bool get _isDirty => _currentSliderVal.round() != widget.limit.dailyLimitMinutes;
+
+  Future<void> _handleSave() async {
+    if (widget.isGuest) {
+      widget.onPromptGuest();
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _hasSaved = false;
+    });
+
+    try {
+      await widget.onLimitChanged(_currentSliderVal.round());
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _hasSaved = true;
+        });
+
+        // Reset the success state after 3 seconds
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _hasSaved = false;
+            });
+          }
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -717,12 +760,62 @@ class _AppLimitCardState extends State<_AppLimitCard> {
                   widget.onPromptGuest();
                   return;
                 }
-                setState(() => _currentSliderVal = value);
+                setState(() {
+                  _currentSliderVal = value;
+                  _hasSaved = false;
+                });
               },
-              onChangeEnd: (value) {
-                if (widget.isGuest) return;
-                widget.onLimitChanged(value.round());
-              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: (_isSaving || !_isDirty) && !_hasSaved ? null : _handleSave,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: double.infinity,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _hasSaved
+                    ? _green.withOpacity(0.12)
+                    : (_isSaving
+                        ? AppColors.surface
+                        : (_isDirty
+                            ? AppColors.cyan
+                            : AppColors.surface)),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _hasSaved
+                      ? _green
+                      : (_isSaving
+                          ? AppColors.outline
+                          : (_isDirty
+                              ? AppColors.cyan
+                              : AppColors.outline)),
+                ),
+              ),
+              child: Center(
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.cyan,
+                        ),
+                      )
+                    : Text(
+                        _hasSaved
+                            ? 'limit set to ${AppLimit.formatMinutes(_currentSliderVal.round())} daily'
+                            : (_isDirty ? 'Set Limit' : 'limit set to ${AppLimit.formatMinutes(widget.limit.dailyLimitMinutes)} daily'),
+                        style: TextStyle(
+                          color: _hasSaved
+                              ? _green
+                              : (_isDirty ? Colors.black : AppColors.muted),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
             ),
           ),
         ],

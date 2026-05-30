@@ -146,12 +146,7 @@ class LimitsService {
         return ApiResult.failure(response.errorMessage ?? 'Network error');
       }
 
-      final json = response.json;
-      if (json == null) {
-        return ApiResult.failure(response.errorMessage ?? 'Empty response');
-      }
-
-      if (response.isSuccess && json['success'] == true) {
+      if (response.isSuccess) {
         return ApiResult.success(true);
       }
 
