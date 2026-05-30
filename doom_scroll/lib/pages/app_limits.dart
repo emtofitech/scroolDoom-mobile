@@ -12,6 +12,7 @@ import '../core/services/limits_service.dart';
 import '../core/services/usage_service.dart';
 import '../core/state/auth_controller.dart';
 import '../core/router/app_router.dart';
+import '../core/services/token_storage.dart';
 import '../widgets/bottom_nav.dart';
 
 const _amber = Color(0xFFFFAA00);
@@ -121,7 +122,8 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
       return;
     }
 
-    ForegroundMonitorService.instance.start(packages);
+    final token = await TokenStorage.accessToken;
+    ForegroundMonitorService.instance.start(packages, authToken: token);
 
     if (!await UsageService.hasUsagePermission()) {
       ScaffoldMessenger.of(context).showSnackBar(

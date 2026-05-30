@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/services/foreground_monitor_service.dart';
 import 'core/services/limits_service.dart';
+import 'core/services/token_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,7 +40,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     final result = await LimitsService.getAll();
     if (result.isSuccess && result.data != null && result.data!.isNotEmpty) {
       final packages = result.data!.map((l) => l.packageName).toSet();
-      ForegroundMonitorService.instance.start(packages);
+      final token = await TokenStorage.accessToken;
+      ForegroundMonitorService.instance.start(packages, authToken: token);
     }
   }
 

@@ -19,17 +19,26 @@ class ForegroundMonitorService {
   bool get isRunning => _isRunning;
   Set<String> get trackedPackages => _trackedPackages;
 
-  void start(Set<String> trackedPackages) {
+  String? _authToken;
+
+  void start(Set<String> trackedPackages, {String? authToken}) {
     if (kIsWeb) return;
     _trackedPackages = trackedPackages;
+    _authToken = authToken;
     _isRunning = true;
     _timer?.cancel();
     _timer = Timer.periodic(_pollInterval, (_) => _check());
+    _startNativeService();
     debugPrint('🟢 [FOREGROUND] Started — monitoring ${trackedPackages.length} apps');
   }
 
-  void updateTrackedApps(Set<String> trackedPackages) {
+  void updateTrackedApps(Set<String> trackedPackages, {String? authToken}) {
     _trackedPackages = trackedPackages;
+    if (authToken != null) _authToken = authToken;
+    if (_isRunning) {
+      _stopNativeService();
+      _startNativeService();
+    }
   }
 
   void stop() {
@@ -38,7 +47,31 @@ class ForegroundMonitorService {
     _isRunning = false;
     _lastForeground = null;
     _lastTrackedOpen = null;
+    _stopNativeService();
     debugPrint('🔴 [FOREGROUND] Stopped');
+  }
+
+  Future<void> _startNativeService() async {
+    try {
+      const channel = MethodChannel(_channel);
+      await channel.invokeMethod('startMonitorService', {
+        'packages': _trackedPackages.join(','),
+        'token': _authToken ?? '',
+      });
+      debugPrint('🟢 [FOREGROUND] Native service started');
+    } catch (e) {
+      debugPrint('⚠️ [FOREGROUND] Native service start error: $e');
+    }
+  }
+
+  Future<void> _stopNativeService() async {
+    try {
+      const channel = MethodChannel(_channel);
+      await channel.invokeMethod('stopMonitorService');
+      debugPrint('🔴 [FOREGROUND] Native service stopped');
+    } catch (e) {
+      debugPrint('⚠️ [FOREGROUND] Native service stop error: $e');
+    }
   }
 
   Future<String?> _getForegroundApp() async {
@@ -80,17 +113,17 @@ class ForegroundMonitorService {
     debugPrint('👁 [FOREGROUND] Switch: $_lastForeground → $current '
         '(wasTracked=$wasTracked, isTracked=$isTracked)');
 
-    if (isTracked && _lastTrackedOpen != current) {
-      debugPrint('📤 [FOREGROUND] Tracked app opened: $current');
-      _lastTrackedOpen = current;
-      unawaited(AdvancedUsageService.recordAppOpen(packageName: current));
-    } else if (wasTracked && !isTracked) {
+    if (wasTracked && _lastTrackedOpen != null) {
       final closed = _lastTrackedOpen;
       _lastTrackedOpen = null;
-      if (closed != null) {
-        debugPrint('📤 [FOREGROUND] Tracked app closed: $closed');
-        unawaited(AdvancedUsageService.recordAppClose(packageName: closed));
-      }
+      debugPrint('📤 [FOREGROUND] Tracked app closed: $closed');
+      unawaited(AdvancedUsageService.recordAppClose(packageName: closed));
+    }
+
+    if (isTracked) {
+      _lastTrackedOpen = current;
+      debugPrint('📤 [FOREGROUND] Tracked app opened: $current');
+      unawaited(AdvancedUsageService.recordAppOpen(packageName: current));
     }
 
     _lastForeground = current;
