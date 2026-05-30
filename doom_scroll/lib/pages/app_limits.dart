@@ -7,7 +7,9 @@ import 'package:installed_apps/installed_apps.dart';
 
 import '../core/theme/colors.dart';
 import '../core/models/limit_models.dart';
+import '../core/services/foreground_monitor_service.dart';
 import '../core/services/limits_service.dart';
+import '../core/services/usage_service.dart';
 import '../core/state/auth_controller.dart';
 import '../core/router/app_router.dart';
 import '../widgets/bottom_nav.dart';
@@ -63,6 +65,7 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
         _isLoading = false;
         _error = null;
       });
+      await _updateForegroundMonitor();
       return;
     }
 
@@ -107,6 +110,35 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
         _isLoading = false;
         _error = null;
       });
+    }
+    await _updateForegroundMonitor();
+  }
+
+  Future<void> _updateForegroundMonitor() async {
+    final packages = _limits.map((l) => l.packageName).toSet();
+    if (packages.isEmpty) {
+      ForegroundMonitorService.instance.stop();
+      return;
+    }
+
+    ForegroundMonitorService.instance.start(packages);
+
+    if (!await UsageService.hasUsagePermission()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Grant "Usage Access" to detect when tracked apps open'),
+          backgroundColor: AppColors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 10),
+          action: SnackBarAction(
+            label: 'Open Settings',
+            textColor: Colors.white,
+            onPressed: () => UsageService.openUsageSettings(),
+          ),
+        ),
+      );
     }
   }
 

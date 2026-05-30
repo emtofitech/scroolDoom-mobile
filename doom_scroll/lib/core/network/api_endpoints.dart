@@ -31,6 +31,17 @@ class ApiEndpoints {
   static const String usageReport = '$_apiVersion/usage/report';
   static const String usageSummary = '$_apiVersion/usage/summary';
 
+  // ── Advanced Usage Tracking ───────────────────────────────────────────────
+  static const String usageStatsMe = '$_apiVersion/usage/stats/me';
+  static const String usageStatsGlobal = '$_apiVersion/usage/stats/global';
+  static const String usageAppOpen = '$_apiVersion/usage/app-open';
+  static const String usageAppClose = '$_apiVersion/usage/app-close';
+  static const String usageHeartbeat = '$_apiVersion/usage/heartbeat';
+  static const String usageEvents = '$_apiVersion/usage/events';
+  static const String usageNotifications = '$_apiVersion/usage/notifications';
+  static String usageNotificationDelivered(String deliveryId) => '$_apiVersion/usage/notifications/$deliveryId/delivered';
+  static String usageNotificationOpened(String deliveryId) => '$_apiVersion/usage/notifications/$deliveryId/opened';
+
   /// Build a full URL from a relative endpoint path.
   static Uri uri(String endpoint) => Uri.parse('$baseUrl$endpoint');
 }

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'core/services/foreground_monitor_service.dart';
+import 'core/services/limits_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,15 +23,30 @@ class MyApp extends ConsumerStatefulWidget {
   ConsumerState<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends ConsumerState<MyApp> {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
-    /// 🔥 Initialize auth state ONCE when app starts
-    Future.microtask(() {
-      ref.read(authControllerProvider.notifier).init();
+    Future.microtask(() async {
+      await ref.read(authControllerProvider.notifier).init();
+      _autoStartMonitor();
     });
+  }
+
+  Future<void> _autoStartMonitor() async {
+    final result = await LimitsService.getAll();
+    if (result.isSuccess && result.data != null && result.data!.isNotEmpty) {
+      final packages = result.data!.map((l) => l.packageName).toSet();
+      ForegroundMonitorService.instance.start(packages);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
