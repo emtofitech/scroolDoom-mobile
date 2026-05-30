@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'api_endpoints.dart';
+import '../services/token_storage.dart';
 
 /// Low-level HTTP client.
 /// Handles headers, encoding, timeouts, and response logging.
@@ -23,6 +24,58 @@ class ApiClient {
     return headers;
   }
 
+  // ── Token Refresh Helper ─────────────────────────────────────────────────
+  static Future<bool> _refreshTokens() async {
+    try {
+      final oldRefreshToken = await TokenStorage.refreshToken;
+      if (oldRefreshToken == null || oldRefreshToken.isEmpty) {
+        debugPrint('⚠️ [APIClient] No refresh token found to perform refresh');
+        return false;
+      }
+
+      final uri = ApiEndpoints.uri(ApiEndpoints.refreshToken);
+      final jsonBody = jsonEncode({"refreshToken": oldRefreshToken});
+      
+      debugPrint('🔄 [APIClient] Intercepted 401. Requesting token refresh...');
+      
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json',
+        },
+        body: utf8.encode(jsonBody),
+      ).timeout(const Duration(seconds: 30));
+
+      debugPrint('🔄 [APIClient] Refresh response status=${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = decoded['data'] as Map<String, dynamic>? ?? decoded;
+        final accessToken = (data['token'] ?? data['accessToken']) as String?;
+        final newRefreshToken = (data['refreshToken'] ?? oldRefreshToken) as String;
+
+        if (accessToken != null && accessToken.isNotEmpty) {
+          await TokenStorage.saveTokens(
+            accessToken: accessToken,
+            refreshToken: newRefreshToken,
+          );
+          debugPrint('🔄 [APIClient] Token refresh successful.');
+          return true;
+        }
+      }
+      
+      if (response.statusCode == 401) {
+        debugPrint('🔄 [APIClient] Refresh token is invalid/expired. Clearing token storage.');
+        await TokenStorage.clear();
+      }
+      return false;
+    } catch (e) {
+      debugPrint('⚠️ [APIClient] Error refreshing token: $e');
+      return false;
+    }
+  }
+
   // ── POST ────────────────────────────────────────────────────────────────
   static Future<ApiResponse> post(
     String endpoint, {
@@ -36,7 +89,7 @@ class ApiClient {
     debugPrint('📡 [BODY] $jsonBody');
 
     try {
-      final response = await http
+      var response = await http
           .post(uri, headers: _headers(token: token), body: utf8.encode(jsonBody))
           .timeout(_timeout, onTimeout: () {
         throw TimeoutException(
@@ -45,6 +98,24 @@ class ApiClient {
       });
 
       debugPrint('✅ [${response.statusCode}] ${response.body}');
+
+      if (response.statusCode == 401 &&
+          endpoint != ApiEndpoints.refreshToken &&
+          endpoint != ApiEndpoints.slidingRefresh &&
+          endpoint != ApiEndpoints.firebaseRefresh) {
+        final success = await _refreshTokens();
+        if (success) {
+          final newToken = await TokenStorage.accessToken;
+          debugPrint('🔄 [APIClient] Retrying [POST] $uri with new token');
+          response = await http
+              .post(uri, headers: _headers(token: newToken), body: utf8.encode(jsonBody))
+              .timeout(_timeout, onTimeout: () {
+            throw TimeoutException('Request timed out during retry.');
+          });
+          debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+        }
+      }
+
       return ApiResponse._fromHttp(response);
     } on TimeoutException catch (e) {
       return ApiResponse.error(e.message ?? 'Request timed out.');
@@ -62,13 +133,31 @@ class ApiClient {
     debugPrint('📡 [GET] $uri');
 
     try {
-      final response = await http
+      var response = await http
           .get(uri, headers: _headers(token: token))
           .timeout(_timeout, onTimeout: () {
         throw TimeoutException('Request timed out.');
       });
 
       debugPrint('✅ [${response.statusCode}] ${response.body}');
+
+      if (response.statusCode == 401 &&
+          endpoint != ApiEndpoints.refreshToken &&
+          endpoint != ApiEndpoints.slidingRefresh &&
+          endpoint != ApiEndpoints.firebaseRefresh) {
+        final success = await _refreshTokens();
+        if (success) {
+          final newToken = await TokenStorage.accessToken;
+          debugPrint('🔄 [APIClient] Retrying [GET] $uri with new token');
+          response = await http
+              .get(uri, headers: _headers(token: newToken))
+              .timeout(_timeout, onTimeout: () {
+            throw TimeoutException('Request timed out during retry.');
+          });
+          debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+        }
+      }
+
       return ApiResponse._fromHttp(response);
     } on TimeoutException catch (e) {
       return ApiResponse.error(e.message ?? 'Request timed out.');
@@ -90,13 +179,31 @@ class ApiClient {
     debugPrint('📡 [BODY] $jsonBody');
 
     try {
-      final response = await http
+      var response = await http
           .put(uri, headers: _headers(token: token), body: utf8.encode(jsonBody))
           .timeout(_timeout, onTimeout: () {
         throw TimeoutException('Request timed out.');
       });
 
       debugPrint('✅ [${response.statusCode}] ${response.body}');
+
+      if (response.statusCode == 401 &&
+          endpoint != ApiEndpoints.refreshToken &&
+          endpoint != ApiEndpoints.slidingRefresh &&
+          endpoint != ApiEndpoints.firebaseRefresh) {
+        final success = await _refreshTokens();
+        if (success) {
+          final newToken = await TokenStorage.accessToken;
+          debugPrint('🔄 [APIClient] Retrying [PUT] $uri with new token');
+          response = await http
+              .put(uri, headers: _headers(token: newToken), body: utf8.encode(jsonBody))
+              .timeout(_timeout, onTimeout: () {
+            throw TimeoutException('Request timed out during retry.');
+          });
+          debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+        }
+      }
+
       return ApiResponse._fromHttp(response);
     } on TimeoutException catch (e) {
       return ApiResponse.error(e.message ?? 'Request timed out.');
@@ -114,13 +221,31 @@ class ApiClient {
     debugPrint('📡 [DELETE] $uri');
 
     try {
-      final response = await http
+      var response = await http
           .delete(uri, headers: _headers(token: token))
           .timeout(_timeout, onTimeout: () {
         throw TimeoutException('Request timed out.');
       });
 
       debugPrint('✅ [${response.statusCode}] ${response.body}');
+
+      if (response.statusCode == 401 &&
+          endpoint != ApiEndpoints.refreshToken &&
+          endpoint != ApiEndpoints.slidingRefresh &&
+          endpoint != ApiEndpoints.firebaseRefresh) {
+        final success = await _refreshTokens();
+        if (success) {
+          final newToken = await TokenStorage.accessToken;
+          debugPrint('🔄 [APIClient] Retrying [DELETE] $uri with new token');
+          response = await http
+              .delete(uri, headers: _headers(token: newToken))
+              .timeout(_timeout, onTimeout: () {
+            throw TimeoutException('Request timed out during retry.');
+          });
+          debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+        }
+      }
+
       return ApiResponse._fromHttp(response);
     } on TimeoutException catch (e) {
       return ApiResponse.error(e.message ?? 'Request timed out.');
@@ -148,8 +273,9 @@ class ApiResponse {
       return ApiResponse._(
         statusCode: response.statusCode,
         errorMessage:
-            'Server returned ${response.statusCode} with no details. '
-            'Try testing on a mobile device instead of web.',
+            response.statusCode == 403
+                ? 'Access denied. Please try signing in again.'
+                : 'Server error (${response.statusCode}). Please try again.',
       );
     }
 

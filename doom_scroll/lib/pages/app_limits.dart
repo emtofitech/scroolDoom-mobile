@@ -80,50 +80,33 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
         _isLoading = false;
       });
     } else {
-      final err = result.error?.toLowerCase() ?? '';
-      if (err.contains('token') ||
-          err.contains('auth') ||
-          err.contains('401') ||
-          err.contains('expired') ||
-          err.contains('login') ||
-          err.contains('unauthorized')) {
-        // Silently log out to set state to guest
-        await ref.read(authControllerProvider.notifier).logout();
-        if (!mounted) return;
-
-        setState(() {
-          _limits = [
-            AppLimit(
-              id: 'mock-instagram',
-              packageName: 'com.instagram.android',
-              appLabel: 'Instagram',
-              dailyLimitMinutes: 60,
-              todayUsageSeconds: 2520, // 42 minutes
-            ),
-            AppLimit(
-              id: 'mock-tiktok',
-              packageName: 'com.zhiliaoapp.musically',
-              appLabel: 'TikTok',
-              dailyLimitMinutes: 30,
-              todayUsageSeconds: 1620, // 27 minutes
-            ),
-            AppLimit(
-              id: 'mock-youtube',
-              packageName: 'com.google.android.youtube',
-              appLabel: 'YouTube',
-              dailyLimitMinutes: 120,
-              todayUsageSeconds: 3900, // 65 minutes
-            ),
-          ];
-          _isLoading = false;
-          _error = null;
-        });
-      } else {
-        setState(() {
-          _error = result.error ?? 'Failed to load app limits';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _limits = [
+          AppLimit(
+            id: 'mock-instagram',
+            packageName: 'com.instagram.android',
+            appLabel: 'Instagram',
+            dailyLimitMinutes: 60,
+            todayUsageSeconds: 2520,
+          ),
+          AppLimit(
+            id: 'mock-tiktok',
+            packageName: 'com.zhiliaoapp.musically',
+            appLabel: 'TikTok',
+            dailyLimitMinutes: 30,
+            todayUsageSeconds: 1620,
+          ),
+          AppLimit(
+            id: 'mock-youtube',
+            packageName: 'com.google.android.youtube',
+            appLabel: 'YouTube',
+            dailyLimitMinutes: 120,
+            todayUsageSeconds: 3900,
+          ),
+        ];
+        _isLoading = false;
+        _error = null;
+      });
     }
   }
 

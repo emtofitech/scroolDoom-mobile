@@ -18,6 +18,17 @@ class AuthController extends StateNotifier<AuthState> {
       state = state.copyWith(status: AuthStatus.guest);
     } else {
       state = state.copyWith(status: AuthStatus.authenticated);
+      
+      // Perform background sliding refresh to keep the session active
+      final refreshResult = await AuthService.slidingRefresh();
+      if (!refreshResult.isSuccess) {
+        // If refresh failed because the token was cleared (e.g. 401/expired),
+        // revert user state to guest/unauthenticated.
+        final currentToken = await TokenStorage.accessToken;
+        if (currentToken == null || currentToken.isEmpty) {
+          state = state.copyWith(status: AuthStatus.guest);
+        }
+      }
     }
   }
 
@@ -38,10 +49,7 @@ class AuthController extends StateNotifier<AuthState> {
     if (result.isSuccess) {
       state = state.copyWith(
         isLoading: false,
-
-        // keep as guest after signup
-        // user still manually signs in later
-        status: AuthStatus.guest,
+        status: AuthStatus.authenticated,
       );
     } else {
       state = state.copyWith(isLoading: false, error: result.error);

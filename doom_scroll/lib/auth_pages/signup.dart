@@ -70,10 +70,10 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     final authState = ref.watch(authControllerProvider);
 
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
-      if (!next.isLoading && next.error == null) {
+      if (next.status == AuthStatus.authenticated && !next.isLoading) {
         _showSnackBar("Account created successfully", isError: false);
 
-        context.go(AppRoutes.signIn);
+        context.go(AppRoutes.home);
       }
 
       if (next.error != null) {

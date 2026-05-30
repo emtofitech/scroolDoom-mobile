@@ -9,7 +9,9 @@ class ApiEndpoints {
   // ── Auth ──────────────────────────────────────────────────────────────────
   static const String register = '$_apiVersion/auth/register';
   static const String login = '$_apiVersion/auth/login';
+  static const String firebaseRefresh = '$_apiVersion/auth/firebase-refresh';
   static const String refreshToken = '$_apiVersion/auth/refresh';
+  static const String slidingRefresh = '$_apiVersion/auth/sliding-refresh';
   static const String logout = '$_apiVersion/auth/logout';
 
   // ── User ──────────────────────────────────────────────────────────────────

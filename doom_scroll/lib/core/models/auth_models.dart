@@ -15,12 +15,15 @@ class AuthResponse {
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
+    final d = json['data'] as Map<String, dynamic>? ?? json;
     return AuthResponse(
-      accessToken: json['accessToken'] ?? '',
-      refreshToken: json['refreshToken'] ?? '',
-      expiresIn: json['expiresIn'] ?? 0,
-      user: UserProfile.fromJson(json['user'] ?? {}),
-      activeLocks: (json['activeLocks'] as List<dynamic>?)
+      accessToken: d['accessToken'] ?? d['token'] ?? '',
+      refreshToken: d['refreshToken'] ?? '',
+      expiresIn: d['expiresIn'] ?? 0,
+      user: UserProfile.fromJson(
+        d['user'] is Map<String, dynamic> ? d['user']! : d,
+      ),
+      activeLocks: (d['activeLocks'] as List<dynamic>?)
               ?.map((e) => ActiveLock.fromJson(e))
               .toList() ??
           [],
@@ -45,10 +48,10 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
-      id: json['id'] ?? '',
+      id: json['id'] ?? json['firebaseUid'] ?? '',
       email: json['email'] ?? '',
       timezone: json['timezone'] ?? '',
-      username: json['username'] ?? '',
+      username: json['username'] ?? json['displayName'] ?? '',
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'])
           : null,

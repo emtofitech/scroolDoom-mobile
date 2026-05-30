@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../models/api_result.dart';
 import '../models/limit_models.dart';
 import '../network/api_client.dart';
@@ -33,6 +34,7 @@ class LimitsService {
   static Future<ApiResult<List<AppLimit>>> getAll() async {
     try {
       final token = await _token();
+      debugPrint('📡 [LIMITS] token (first 50 chars): ${token.substring(0, token.length > 50 ? 50 : token.length)}...');
       final response = await ApiClient.get(ApiEndpoints.limits, token: token);
 
       if (response.isNetworkError) {
