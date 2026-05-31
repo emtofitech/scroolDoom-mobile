@@ -9,6 +9,7 @@ import '../../pages/lockout.dart';
 import '../../pages/streaks.dart';
 import '../../pages/accountability.dart';
 import '../../pages/breaches.dart';
+import '../../pages/settings.dart';
 import '../../auth_pages/signin.dart';
 import '../../auth_pages/signup.dart';
 
@@ -26,6 +27,7 @@ class AppRoutes {
   static const String accountability = '/accountability';
   static const String lockout = '/lockout';
   static const String breaches = '/breaches';
+  static const String settings = '/settings';
 }
 
 /// Global navigator key — lets services outside the widget tree push routes.

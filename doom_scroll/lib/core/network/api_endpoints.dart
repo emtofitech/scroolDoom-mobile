@@ -17,6 +17,8 @@ class ApiEndpoints {
   // ── User ──────────────────────────────────────────────────────────────────
   static const String profile = '$_apiVersion/user/profile';
   static const String updateProfile = '$_apiVersion/user/profile';
+  static const String usersMe = '$_apiVersion/users/me';
+  static const String usersMeFcm = '$_apiVersion/users/me/fcm';
 
   // ── App Limits ────────────────────────────────────────────────────────────
   static const String limits = '$_apiVersion/limits';

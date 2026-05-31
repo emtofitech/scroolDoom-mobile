@@ -215,14 +215,22 @@ class ApiClient {
   // ── PATCH ────────────────────────────────────────────────────────────────
   static Future<ApiResponse> patch(
     String endpoint, {
+    Map<String, dynamic>? body,
     String? token,
   }) async {
     final uri = ApiEndpoints.uri(endpoint);
+    final jsonBody = body != null ? jsonEncode(body) : null;
+
     debugPrint('📡 [PATCH] $uri');
+    if (jsonBody != null) debugPrint('📡 [BODY] $jsonBody');
 
     try {
       var response = await http
-          .patch(uri, headers: _headers(token: token))
+          .patch(
+            uri,
+            headers: _headers(token: token),
+            body: jsonBody != null ? utf8.encode(jsonBody) : null,
+          )
           .timeout(_timeout, onTimeout: () {
         throw TimeoutException('Request timed out.');
       });
@@ -238,7 +246,11 @@ class ApiClient {
           final newToken = await TokenStorage.accessToken;
           debugPrint('🔄 [APIClient] Retrying [PATCH] $uri with new token');
           response = await http
-              .patch(uri, headers: _headers(token: newToken))
+              .patch(
+                uri,
+                headers: _headers(token: newToken),
+                body: jsonBody != null ? utf8.encode(jsonBody) : null,
+              )
               .timeout(_timeout, onTimeout: () {
             throw TimeoutException('Request timed out during retry.');
           });

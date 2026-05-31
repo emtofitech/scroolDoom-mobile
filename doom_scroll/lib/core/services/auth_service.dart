@@ -54,18 +54,16 @@ class AuthService {
         );
       }
 
-      if (response.isSuccess && idToken != null) {
-        // Step 4 — Exchange Firebase ID token for backend JWT
-        final exchangeResult = await _exchangeToken(idToken);
-        if (exchangeResult != null) return exchangeResult;
-
-        return ApiResult.failure('Failed to authenticate session with backend.');
-      }
-
       if (response.isSuccess) {
-        final authData = AuthResponse.fromJson(response.json!);
-        await _persistAuth(authData);
-        return ApiResult.success(authData);
+        await _firebaseAuth.signOut();
+        final registeredUser = AuthResponse(
+          accessToken: '',
+          refreshToken: '',
+          expiresIn: 0,
+          user: UserProfile.fromJson(response.json?['data'] ?? {}),
+          activeLocks: [],
+        );
+        return ApiResult.success(registeredUser);
       }
 
       return ApiResult.failure(
@@ -73,6 +71,8 @@ class AuthService {
       );
     } on FirebaseAuthException catch (e) {
       return ApiResult.failure(_firebaseErrorMessage(e.code));
+    } catch (e) {
+      return ApiResult.failure('Something went wrong. Please try again.');
     }
   }
 
@@ -102,6 +102,8 @@ class AuthService {
       return ApiResult.failure('Failed to authenticate session with backend.');
     } on FirebaseAuthException catch (e) {
       return ApiResult.failure(_firebaseErrorMessage(e.code));
+    } catch (e) {
+      return ApiResult.failure('Something went wrong. Please try again.');
     }
   }
 
@@ -267,13 +269,15 @@ class AuthService {
         refreshToken: auth.refreshToken,
       );
     }
+    final displayName = auth.user.username.isNotEmpty
+        ? auth.user.username
+        : auth.user.email.split('@').first;
     await TokenStorage.saveUser(
       id: auth.user.id,
-      username: auth.user.username,
+      username: displayName,
       email: auth.user.email,
     );
   }
-
 
 
   static String _firebaseErrorMessage(String code) {
@@ -288,6 +292,8 @@ class AuthService {
         return 'No account found with this email.';
       case 'wrong-password':
         return 'Incorrect password.';
+      case 'invalid-credential':
+        return 'Invalid email or password.';
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
       default:

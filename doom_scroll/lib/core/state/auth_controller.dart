@@ -40,19 +40,16 @@ class AuthController extends StateNotifier<AuthState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
 
-    final result = await AuthService.register(
-      username: username,
-      email: email,
-      password: password,
-    );
-
-    if (result.isSuccess) {
-      state = state.copyWith(
-        isLoading: false,
-        status: AuthStatus.authenticated,
+    try {
+      final result = await AuthService.register(
+        username: username,
+        email: email,
+        password: password,
       );
-    } else {
+
       state = state.copyWith(isLoading: false, error: result.error);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
@@ -60,15 +57,19 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
 
-    final result = await AuthService.login(email: email, password: password);
+    try {
+      final result = await AuthService.login(email: email, password: password);
 
-    if (result.isSuccess) {
-      state = state.copyWith(
-        isLoading: false,
-        status: AuthStatus.authenticated,
-      );
-    } else {
-      state = state.copyWith(isLoading: false, error: result.error);
+      if (result.isSuccess) {
+        state = state.copyWith(
+          isLoading: false,
+          status: AuthStatus.authenticated,
+        );
+      } else {
+        state = state.copyWith(isLoading: false, error: result.error);
+      }
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 

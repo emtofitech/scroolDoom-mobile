@@ -55,11 +55,13 @@ class _SigninPageState extends ConsumerState<SigninPage> {
     final authState = ref.watch(authControllerProvider);
 
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
-      if (next.status == AuthStatus.authenticated) {
+      if (next.status == AuthStatus.authenticated &&
+          !next.isLoading &&
+          next.error == null) {
         context.go(AppRoutes.home);
       }
 
-      if (next.error != null) {
+      if (next.error != null && next.error != previous?.error) {
         _showSnackBar(next.error!);
       }
     });

@@ -1,6 +1,7 @@
 import 'package:doom_scroll/core/state/auth_controller.dart';
 import 'package:doom_scroll/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +10,7 @@ import 'core/services/foreground_monitor_service.dart';
 import 'core/services/limits_service.dart';
 import 'core/services/token_storage.dart';
 import 'core/services/usage_monitor_service.dart';
+import 'core/services/user_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +36,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     Future.microtask(() async {
       await ref.read(authControllerProvider.notifier).init();
       _autoStartMonitor();
+      _syncFcmToken();
     });
   }
 
@@ -46,6 +49,15 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       ForegroundMonitorService.instance.start(packages, authToken: token, limits: limitsMap);
       UsageMonitorService.instance.start(packages, limits: limitsMap);
     }
+  }
+
+  Future<void> _syncFcmToken() async {
+    if (!ref.read(authControllerProvider).isAuthenticated) return;
+
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    if (fcmToken == null || fcmToken.isEmpty) return;
+
+    await UserService.updateFcmToken(fcmToken);
   }
 
   @override

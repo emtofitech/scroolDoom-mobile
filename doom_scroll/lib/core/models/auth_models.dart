@@ -37,6 +37,9 @@ class UserProfile {
   final String timezone;
   final String username;
   final DateTime? createdAt;
+  final String? displayName;
+  final String? avatarUrl;
+  final String? firebaseUid;
 
   UserProfile({
     required this.id,
@@ -44,6 +47,9 @@ class UserProfile {
     required this.timezone,
     required this.username,
     this.createdAt,
+    this.displayName,
+    this.avatarUrl,
+    this.firebaseUid,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -55,6 +61,9 @@ class UserProfile {
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'])
           : null,
+      displayName: json['displayName'],
+      avatarUrl: json['avatarUrl'],
+      firebaseUid: json['firebaseUid'],
     );
   }
 }
