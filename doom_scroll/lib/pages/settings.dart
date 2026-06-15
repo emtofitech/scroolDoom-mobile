@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/router/app_router.dart';
 import '../core/state/auth_controller.dart';
+import '../core/state/partner_controller.dart';
 import '../core/state/theme_notifier.dart';
 import '../core/theme/colors.dart';
 import '../widgets/bottom_nav.dart';
@@ -93,6 +94,7 @@ class SettingsPage extends ConsumerWidget {
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: () async {
+                  ref.read(partnerControllerProvider.notifier).reset();
                   await ref.read(authControllerProvider.notifier).logout();
                   if (context.mounted) context.go(AppRoutes.landing);
                 },

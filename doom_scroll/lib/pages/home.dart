@@ -6,6 +6,7 @@ import '../core/theme/colors.dart';
 import '../widgets/bottom_nav.dart';
 import '../core/router/app_router.dart';
 import '../core/state/auth_controller.dart';
+import '../core/state/partner_controller.dart';
 import '../core/services/token_storage.dart';
 
 // Extra colours not in AppColors
@@ -57,6 +58,7 @@ class HomePage extends ConsumerWidget {
                       ),
                       GestureDetector(
                         onTap: () async {
+                          ref.read(partnerControllerProvider.notifier).reset();
                           await ref.read(authControllerProvider.notifier).logout();
                           if (context.mounted) context.go(AppRoutes.landing);
                         },

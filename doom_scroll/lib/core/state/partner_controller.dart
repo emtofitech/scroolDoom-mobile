@@ -91,6 +91,10 @@ class PartnerController extends StateNotifier<PartnerState> {
     return p;
   }
 
+  void reset() {
+    state = PartnerState();
+  }
+
   Future<bool> dissolvePartnership() async {
     final partnership = state.partnership;
     if (partnership == null) return false;
