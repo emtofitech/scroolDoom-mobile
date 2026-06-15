@@ -38,7 +38,10 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
   void initState() {
     super.initState();
     _loadAll();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshStatuses());
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshStatuses(),
+    );
   }
 
   @override
@@ -80,7 +83,7 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
             packageName: 'com.google.android.youtube',
             appLabel: 'YouTube',
             dailyLimitMinutes: 120,
-            todayUsageSeconds: 3900, // 65 minutes
+            todayUsageSeconds: 3900,
           ),
         ];
         _isLoading = false;
@@ -156,10 +159,14 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
     if (!await UsageService.hasUsagePermission()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Grant "Usage Access" to detect when tracked apps open'),
+          content: const Text(
+            'Grant "Usage Access" to detect when tracked apps open',
+          ),
           backgroundColor: AppColors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           margin: const EdgeInsets.all(16),
           duration: const Duration(seconds: 10),
           action: SnackBarAction(
@@ -172,7 +179,11 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
     }
   }
 
-  Future<void> _createLimit(String packageName, String appLabel, {int dailyLimitMinutes = 30}) async {
+  Future<void> _createLimit(
+    String packageName,
+    String appLabel, {
+    int dailyLimitMinutes = 30,
+  }) async {
     setState(() => _isLoading = true);
 
     final result = await LimitsService.create(
@@ -378,7 +389,11 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
           Navigator.pop(context);
           final minutes = await _promptLimitMinutes(context, appLabel);
           if (minutes != null && mounted) {
-            await _createLimit(packageName, appLabel, dailyLimitMinutes: minutes);
+            await _createLimit(
+              packageName,
+              appLabel,
+              dailyLimitMinutes: minutes,
+            );
           }
         },
       ),
@@ -393,17 +408,27 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
         return StatefulBuilder(
           builder: (context, setDialogState) => AlertDialog(
             backgroundColor: AppColors.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: Text(
               'Limit for $appLabel',
-              style: const TextStyle(color: AppColors.text, fontSize: 18, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                color: AppColors.text,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '${val.round()} minutes',
-                  style: const TextStyle(color: AppColors.cyan, fontSize: 32, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    color: AppColors.cyan,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 Slider(
                   value: val,
@@ -420,11 +445,20 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel', style: TextStyle(color: AppColors.muted)),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.muted),
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, val.round()),
-                child: const Text('Add', style: TextStyle(color: AppColors.cyan, fontWeight: FontWeight.w700)),
+                child: const Text(
+                  'Add',
+                  style: TextStyle(
+                    color: AppColors.cyan,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
@@ -447,7 +481,10 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final totalMinutes = _limits.fold<int>(0, (sum, item) => sum + item.dailyLimitMinutes);
+    final totalMinutes = _limits.fold<int>(
+      0,
+      (sum, item) => sum + item.dailyLimitMinutes,
+    );
     final h = totalMinutes ~/ 60;
     final m = totalMinutes % 60;
     final totalLabel = m == 0 ? '${h}h / day' : '${h}h ${m}m / day';
@@ -457,128 +494,141 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
       bottomNavigationBar: const AppBottomNav(currentIndex: 1),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.cyan))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.cyan),
+              )
             : _error != null
-                ? _buildErrorView()
-                : RefreshIndicator(
-                    onRefresh: _loadAll,
-                    color: AppColors.cyan,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: ListView(
-                        children: [
-                          const SizedBox(height: 10),
+            ? _buildErrorView()
+            : RefreshIndicator(
+                onRefresh: _loadAll,
+                color: AppColors.cyan,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: 10),
 
-                          /// TOP BAR
+                      /// TOP BAR
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: const [
-                                  Icon(Icons.shield, color: AppColors.cyan, size: 16),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'DoomScroll',
-                                    style: TextStyle(
-                                      color: AppColors.text,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                            children: const [
+                              Icon(
+                                Icons.shield,
+                                color: AppColors.cyan,
+                                size: 16,
                               ),
-                              Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surface,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: AppColors.outline),
-                                ),
-                                child: const Icon(
-                                  Icons.settings_outlined,
-                                  color: AppColors.muted,
-                                  size: 18,
+                              SizedBox(width: 6),
+                              Text(
+                                'DoomScroll',
+                                style: TextStyle(
+                                  color: AppColors.text,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-
-                          const SizedBox(height: 22),
-
-                          /// HEADING
-                          const Text(
-                            'App Limits',
-                            style: TextStyle(
-                              color: AppColors.text,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w800,
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.outline),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Configure your daily boundaries.\nStay focused and reduce screen time.',
-                            style: TextStyle(
+                            child: const Icon(
+                              Icons.settings_outlined,
                               color: AppColors.muted,
-                              height: 1.5,
-                              fontSize: 13.5,
+                              size: 18,
                             ),
                           ),
-
-                          const SizedBox(height: 22),
-
-                          /// RECLAIM CARD
-                          _ReclaimCard(onAddApp: _showAddAppSheet),
-
-                          const SizedBox(height: 22),
-
-                          const Text(
-                            'TRACKED APPS',
-                            style: TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-
-                          const SizedBox(height: 14),
-
-                          if (_limits.isEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(32),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.outline),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  'No tracked apps yet.\nTap "ADD APP" above to begin.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: AppColors.muted, height: 1.5),
-                                ),
-                              ),
-                            )
-                          else
-                            ..._limits.map((limit) => _AppLimitCard(
-                                  limit: limit,
-                                  status: _statuses[limit.packageName],
-                                  isGuest: ref.read(authControllerProvider).isGuest,
-                                  onLimitChanged: (val) => _updateLimit(limit, val),
-                                  onRemove: () => _removeApp(limit),
-                                  onPromptGuest: () => _promptGuestToSignIn(actionName: 'update daily limits'),
-                                )),
-
-                          const SizedBox(height: 22),
-
-                          if (_limits.isNotEmpty) ...[
-                            _TotalCard(totalLabel: totalLabel),
-                            const SizedBox(height: 28),
-                          ],
                         ],
                       ),
-                    ),
+
+                      const SizedBox(height: 22),
+
+                      /// HEADING
+                      const Text(
+                        'App Limits',
+                        style: TextStyle(
+                          color: AppColors.text,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Configure your daily boundaries.\nStay focused and reduce screen time.',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          height: 1.5,
+                          fontSize: 13.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 22),
+
+                      /// RECLAIM CARD
+                      _ReclaimCard(onAddApp: _showAddAppSheet),
+
+                      const SizedBox(height: 22),
+
+                      const Text(
+                        'TRACKED APPS',
+                        style: TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      if (_limits.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppColors.outline),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'No tracked apps yet.\nTap "ADD APP" above to begin.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ..._limits.map(
+                          (limit) => _AppLimitCard(
+                            limit: limit,
+                            status: _statuses[limit.packageName],
+                            isGuest: ref.read(authControllerProvider).isGuest,
+                            onLimitChanged: (val) => _updateLimit(limit, val),
+                            onRemove: () => _removeApp(limit),
+                            onPromptGuest: () => _promptGuestToSignIn(
+                              actionName: 'update daily limits',
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 22),
+
+                      if (_limits.isNotEmpty) ...[
+                        _TotalCard(totalLabel: totalLabel),
+                        const SizedBox(height: 28),
+                      ],
+                    ],
                   ),
+                ),
+              ),
       ),
     );
   }
@@ -603,9 +653,14 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.cyan,
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Retry',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -729,7 +784,8 @@ class _AppLimitCardState extends State<_AppLimitCard> {
     }
   }
 
-  bool get _isDirty => _currentSliderVal.round() != widget.limit.dailyLimitMinutes;
+  bool get _isDirty =>
+      _currentSliderVal.round() != widget.limit.dailyLimitMinutes;
 
   Future<void> _handleSave() async {
     if (widget.isGuest) {
@@ -770,7 +826,8 @@ class _AppLimitCardState extends State<_AppLimitCard> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.limit.todayUsageSeconds / (widget.limit.dailyLimitMinutes * 60);
+    final progress =
+        widget.limit.todayUsageSeconds / (widget.limit.dailyLimitMinutes * 60);
     Color accent = AppColors.cyan;
 
     if (progress >= 0.9) {
@@ -848,7 +905,10 @@ class _AppLimitCardState extends State<_AppLimitCard> {
               if (widget.status?.exceeded == true) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.red.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -872,7 +932,11 @@ class _AppLimitCardState extends State<_AppLimitCard> {
                     color: AppColors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.delete_outline, color: AppColors.red, size: 18),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.red,
+                    size: 18,
+                  ),
                 ),
               ),
             ],
@@ -912,19 +976,15 @@ class _AppLimitCardState extends State<_AppLimitCard> {
                 color: _hasSaved
                     ? _green.withOpacity(0.12)
                     : (_isSaving
-                        ? AppColors.surface
-                        : (_isDirty
-                            ? AppColors.cyan
-                            : AppColors.surface)),
+                          ? AppColors.surface
+                          : (_isDirty ? AppColors.cyan : AppColors.surface)),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: _hasSaved
                       ? _green
                       : (_isSaving
-                          ? AppColors.outline
-                          : (_isDirty
-                              ? AppColors.cyan
-                              : AppColors.outline)),
+                            ? AppColors.outline
+                            : (_isDirty ? AppColors.cyan : AppColors.outline)),
                 ),
               ),
               child: Center(
@@ -940,7 +1000,9 @@ class _AppLimitCardState extends State<_AppLimitCard> {
                     : Text(
                         _hasSaved
                             ? 'limit set to ${AppLimit.formatMinutes(_currentSliderVal.round())} daily'
-                            : (_isDirty ? 'Set Limit' : 'limit set to ${AppLimit.formatMinutes(widget.limit.dailyLimitMinutes)} daily'),
+                            : (_isDirty
+                                  ? 'Set Limit'
+                                  : 'limit set to ${AppLimit.formatMinutes(widget.limit.dailyLimitMinutes)} daily'),
                         style: TextStyle(
                           color: _hasSaved
                               ? _green
@@ -988,10 +1050,11 @@ class _InstalledAppsSheetState extends State<_InstalledAppsSheet> {
         withIcon: true,
       );
 
-      final available = apps
-          .where((a) => !widget.trackedPackageNames.contains(a.packageName))
-          .toList()
-        ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
+      final available =
+          apps
+              .where((a) => !widget.trackedPackageNames.contains(a.packageName))
+              .toList()
+            ..sort((a, b) => (a.name ?? '').compareTo(b.name ?? ''));
 
       if (!mounted) return;
       setState(() {
@@ -1035,65 +1098,73 @@ class _InstalledAppsSheetState extends State<_InstalledAppsSheet> {
           const SizedBox(height: 16),
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.cyan))
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.cyan),
+                  )
                 : _installedApps.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No more apps available to add',
-                          style: TextStyle(color: AppColors.muted),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _installedApps.length,
-                        itemBuilder: (context, index) {
-                          final app = _installedApps[index];
-                          final icon = app.icon;
+                ? const Center(
+                    child: Text(
+                      'No more apps available to add',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _installedApps.length,
+                    itemBuilder: (context, index) {
+                      final app = _installedApps[index];
+                      final icon = app.icon;
 
-                          return GestureDetector(
-                            onTap: () => widget.onAppSelected(app.packageName ?? '', app.name ?? 'Unknown'),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.bg,
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: AppColors.outline),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surface,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    clipBehavior: Clip.antiAlias,
-                                    child: icon != null
-                                        ? Image.memory(icon, fit: BoxFit.cover)
-                                        : const Icon(Icons.apps, color: AppColors.cyan),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      app.name ?? 'Unknown',
-                                      style: const TextStyle(
-                                        color: AppColors.text,
-                                        fontWeight: FontWeight.w600,
+                      return GestureDetector(
+                        onTap: () => widget.onAppSelected(
+                          app.packageName ?? '',
+                          app.name ?? 'Unknown',
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.outline),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: icon != null
+                                    ? Image.memory(icon, fit: BoxFit.cover)
+                                    : const Icon(
+                                        Icons.apps,
+                                        color: AppColors.cyan,
                                       ),
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.add_circle_outline,
-                                    color: AppColors.cyan,
-                                  ),
-                                ],
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  app.name ?? 'Unknown',
+                                  style: const TextStyle(
+                                    color: AppColors.text,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.add_circle_outline,
+                                color: AppColors.cyan,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

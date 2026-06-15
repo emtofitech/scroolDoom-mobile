@@ -153,7 +153,11 @@ class _LockoutPageState extends State<LockoutPage> {
                             children: [
                               Row(
                                 children: const [
-                                  Icon(Icons.shield, color: AppColors.text, size: 18),
+                                  Icon(
+                                    Icons.shield,
+                                    color: AppColors.text,
+                                    size: 18,
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
                                     'DoomScroll',
@@ -203,7 +207,10 @@ class _LockoutPageState extends State<LockoutPage> {
 
                           const Text(
                             'Your mind deserves a reset.',
-                            style: TextStyle(color: AppColors.muted, fontSize: 15),
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 15,
+                            ),
                           ),
 
                           const SizedBox(height: 50),
@@ -262,7 +269,9 @@ class _LockoutPageState extends State<LockoutPage> {
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.03),
                               borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: Colors.white.withOpacity(0.06)),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.06),
+                              ),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -310,7 +319,10 @@ class _LockoutPageState extends State<LockoutPage> {
                             padding: EdgeInsets.only(bottom: 22),
                             child: Text(
                               'Hold to Emergency Unlock',
-                              style: TextStyle(color: AppColors.muted, fontSize: 12),
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ],

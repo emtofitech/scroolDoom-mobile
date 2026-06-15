@@ -54,6 +54,12 @@ class ApiEndpoints {
   static const String breachesMe = '$_apiVersion/breaches/me';
   static String breachesMeByType(String breachType) => '$_apiVersion/breaches/me/type/$breachType';
 
+  // ── Partnerships ─────────────────────────────────────────────────────────
+  static const String partnershipInvite = '$_apiVersion/partnerships/invite';
+  static const String partnershipAccept = '$_apiVersion/partnerships/accept';
+  static const String partnershipMe = '$_apiVersion/partnerships/me';
+  static String partnershipById(String id) => '$_apiVersion/partnerships/$id';
+
   /// Build a full URL from a relative endpoint path.
   static Uri uri(String endpoint) => Uri.parse('$baseUrl$endpoint');
 }

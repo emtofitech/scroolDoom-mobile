@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../core/theme/colors.dart';
 import '../widgets/bottom_nav.dart';
+import '../core/router/app_router.dart';
 import '../core/state/auth_controller.dart';
 import '../core/services/token_storage.dart';
 
@@ -53,17 +55,40 @@ class HomePage extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.outline),
+                      GestureDetector(
+                        onTap: () async {
+                          await ref.read(authControllerProvider.notifier).logout();
+                          if (context.mounted) context.go(AppRoutes.landing);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.red.withOpacity(0.35)),
+                          ),
+                          child: const Icon(
+                            Icons.logout_rounded,
+                            color: AppColors.red,
+                            size: 18,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.settings_outlined,
-                          color: AppColors.muted,
-                          size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => context.push(AppRoutes.settings),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.outline),
+                          ),
+                          child: const Icon(
+                            Icons.settings_outlined,
+                            color: AppColors.muted,
+                            size: 18,
+                          ),
                         ),
                       ),
                     ],

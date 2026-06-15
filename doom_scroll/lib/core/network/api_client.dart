@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'api_endpoints.dart';
@@ -52,21 +53,31 @@ class ApiClient {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
         final data = decoded['data'] as Map<String, dynamic>? ?? decoded;
-        final accessToken = (data['token'] ?? data['accessToken']) as String?;
         final newRefreshToken = (data['refreshToken'] ?? oldRefreshToken) as String;
 
-        if (accessToken != null && accessToken.isNotEmpty) {
+        // Use Firebase ID token as access token (backend rejects its own JWTs)
+        String? firebaseIdToken;
+        try {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            firebaseIdToken = await user.getIdToken(true);
+          }
+        } catch (e) {
+          debugPrint('⚠️ [APIClient] Failed to get Firebase ID token: $e');
+        }
+
+        if (firebaseIdToken != null && firebaseIdToken.isNotEmpty) {
           await TokenStorage.saveTokens(
-            accessToken: accessToken,
+            accessToken: firebaseIdToken,
             refreshToken: newRefreshToken,
           );
-          debugPrint('🔄 [APIClient] Token refresh successful.');
+          debugPrint('🔄 [APIClient] Token refresh successful (Firebase ID token).');
           return true;
         }
       }
       
-      if (response.statusCode == 401) {
-        debugPrint('🔄 [APIClient] Refresh token is invalid/expired. Clearing token storage.');
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        debugPrint('🔄 [APIClient] Token unrecoverable (${response.statusCode}). Clearing token storage.');
         await TokenStorage.clear();
       }
       return false;
@@ -113,6 +124,9 @@ class ApiClient {
             throw TimeoutException('Request timed out during retry.');
           });
           debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+          if (response.statusCode == 401) {
+            await TokenStorage.clear();
+          }
         }
       }
 
@@ -155,6 +169,9 @@ class ApiClient {
             throw TimeoutException('Request timed out during retry.');
           });
           debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+          if (response.statusCode == 401) {
+            await TokenStorage.clear();
+          }
         }
       }
 
@@ -201,6 +218,9 @@ class ApiClient {
             throw TimeoutException('Request timed out during retry.');
           });
           debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+          if (response.statusCode == 401) {
+            await TokenStorage.clear();
+          }
         }
       }
 
@@ -255,6 +275,9 @@ class ApiClient {
             throw TimeoutException('Request timed out during retry.');
           });
           debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+          if (response.statusCode == 401) {
+            await TokenStorage.clear();
+          }
         }
       }
 
@@ -297,6 +320,9 @@ class ApiClient {
             throw TimeoutException('Request timed out during retry.');
           });
           debugPrint('✅ [Retry][${response.statusCode}] ${response.body}');
+          if (response.statusCode == 401) {
+            await TokenStorage.clear();
+          }
         }
       }
 

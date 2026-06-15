@@ -144,15 +144,29 @@ class AuthService {
     }
 
     debugPrint('🔄 [FIREBASE-REFRESH] SUCCESS: got backend token (${backendToken.length} chars)');
-    final authData = AuthResponse(
-      accessToken: backendToken,
-      refreshToken: data['refreshToken'] ?? backendToken,
-      expiresIn: 3600,
-      user: UserProfile.fromJson(data),
-      activeLocks: [],
+
+    // Use Firebase ID token as access token (backend rejects its own JWTs)
+    final firebaseUser = _firebaseAuth.currentUser;
+    if (firebaseUser == null) {
+      debugPrint('🔄 [FIREBASE-REFRESH] FAILED: no Firebase user');
+      return null;
+    }
+    final firebaseIdToken = await firebaseUser.getIdToken(true);
+    if (firebaseIdToken == null || firebaseIdToken.isEmpty) {
+      debugPrint('🔄 [FIREBASE-REFRESH] FAILED: no Firebase ID token');
+      return null;
+    }
+
+    final authData = AuthResponse.fromJson(response.json!);
+    final authDataWithFallback = AuthResponse(
+      accessToken: firebaseIdToken,
+      refreshToken: authData.refreshToken.isNotEmpty ? authData.refreshToken : backendToken,
+      expiresIn: authData.expiresIn,
+      user: authData.user,
+      activeLocks: authData.activeLocks,
     );
-    await _persistAuth(authData);
-    return ApiResult.success(authData);
+    await _persistAuth(authDataWithFallback);
+    return ApiResult.success(authDataWithFallback);
   }
 
   // ───────────────── LOGOUT ─────────────────
@@ -193,14 +207,32 @@ class AuthService {
       if (response.isSuccess) {
         final authData = AuthResponse.fromJson(json);
         if (authData.accessToken.isNotEmpty) {
-          await _persistAuth(authData);
-          debugPrint('🔄 [TOKEN-REFRESH] SUCCESS: Saved new tokens.');
-          return ApiResult.success(authData);
+          final firebaseUser = _firebaseAuth.currentUser;
+          if (firebaseUser == null) {
+            await TokenStorage.clear();
+            return ApiResult.failure('No Firebase user during token refresh');
+          }
+          final firebaseIdToken = await firebaseUser.getIdToken(true);
+          if (firebaseIdToken == null || firebaseIdToken.isEmpty) {
+            await TokenStorage.clear();
+            return ApiResult.failure('Failed to get Firebase ID token during refresh');
+          }
+
+          final authDataWithFb = AuthResponse(
+            accessToken: firebaseIdToken,
+            refreshToken: authData.refreshToken.isNotEmpty ? authData.refreshToken : authData.accessToken,
+            expiresIn: authData.expiresIn,
+            user: authData.user,
+            activeLocks: authData.activeLocks,
+          );
+          await _persistAuth(authDataWithFb);
+          debugPrint('🔄 [TOKEN-REFRESH] SUCCESS: Saved new tokens with Firebase ID token.');
+          return ApiResult.success(authDataWithFb);
         }
       }
 
-      if (response.statusCode == 401) {
-        debugPrint('🔄 [TOKEN-REFRESH] Refresh token is invalid/expired. Clearing token storage.');
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        debugPrint('🔄 [TOKEN-REFRESH] Token unrecoverable (${response.statusCode}). Clearing token storage.');
         await TokenStorage.clear();
       }
 
@@ -220,11 +252,14 @@ class AuthService {
         return ApiResult.failure('No refresh token stored.');
       }
 
+      final accessToken = await TokenStorage.accessToken;
+
       debugPrint('🔄 [SLIDING-REFRESH] Sending POST to ${ApiEndpoints.slidingRefresh}');
 
       final response = await ApiClient.post(
         ApiEndpoints.slidingRefresh,
         body: {"refreshToken": oldRefreshToken},
+        token: accessToken,
       );
 
       debugPrint('🔄 [SLIDING-REFRESH] status=${response.statusCode}, json=${response.json}');
@@ -241,14 +276,32 @@ class AuthService {
       if (response.isSuccess) {
         final authData = AuthResponse.fromJson(json);
         if (authData.accessToken.isNotEmpty) {
-          await _persistAuth(authData);
-          debugPrint('🔄 [SLIDING-REFRESH] SUCCESS: Saved new tokens.');
-          return ApiResult.success(authData);
+          final firebaseUser = _firebaseAuth.currentUser;
+          if (firebaseUser == null) {
+            await TokenStorage.clear();
+            return ApiResult.failure('No Firebase user during sliding refresh');
+          }
+          final firebaseIdToken = await firebaseUser.getIdToken(true);
+          if (firebaseIdToken == null || firebaseIdToken.isEmpty) {
+            await TokenStorage.clear();
+            return ApiResult.failure('Failed to get Firebase ID token during sliding refresh');
+          }
+
+          final authDataWithFb = AuthResponse(
+            accessToken: firebaseIdToken,
+            refreshToken: authData.refreshToken.isNotEmpty ? authData.refreshToken : authData.accessToken,
+            expiresIn: authData.expiresIn,
+            user: authData.user,
+            activeLocks: authData.activeLocks,
+          );
+          await _persistAuth(authDataWithFb);
+          debugPrint('🔄 [SLIDING-REFRESH] SUCCESS: Saved new tokens with Firebase ID token.');
+          return ApiResult.success(authDataWithFb);
         }
       }
 
-      if (response.statusCode == 401) {
-        debugPrint('🔄 [SLIDING-REFRESH] Session invalid/expired. Clearing token storage.');
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        debugPrint('🔄 [SLIDING-REFRESH] Session unrecoverable (${response.statusCode}). Clearing token storage.');
         await TokenStorage.clear();
       }
 
