@@ -37,27 +37,57 @@ class MonitorService : Service() {
         val packages = intent?.getStringExtra("trackedPackages") ?: ""
         val token = intent?.getStringExtra("authToken") ?: ""
 
-        tracked.clear()
-        tracked.addAll(packages.split(",").filter { it.isNotBlank() })
-        authToken = token
+        // Check if this is a lock/unlock command
+        val lockAction = intent?.getStringExtra("lockAction")
+        val lockPackage = intent?.getStringExtra("lockPackage")
+        val lockLabel = intent?.getStringExtra("lockLabel")
 
-        val notification = buildNotification(
-            if (tracked.isEmpty()) "No apps tracked"
-            else "Monitoring ${tracked.size} app${if (tracked.size != 1) "s" else ""}"
-        )
-        startForeground(NOTIFICATION_ID, notification)
+        if (lockAction != null && lockPackage != null) {
+            when (lockAction) {
+                "lock" -> {
+                    blockedApps.add(lockPackage)
+                    blockedLabels[lockPackage] = lockLabel ?: lockPackage
+                    Log.d(TAG, "🔒 Locked app: $lockPackage (${blockedApps.size} total)")
+                    // If this app is currently in the foreground, block it immediately
+                    val currentFg = detectForegroundApp()
+                    if (currentFg == lockPackage) {
+                        launchBlocker(lockPackage, lockLabel ?: lockPackage)
+                    }
+                }
+                "unlock" -> {
+                    blockedApps.remove(lockPackage)
+                    blockedLabels.remove(lockPackage)
+                    Log.d(TAG, "🔓 Unlocked app: $lockPackage (${blockedApps.size} total)")
+                }
+            }
+            return START_REDELIVER_INTENT
+        }
 
-        timer?.cancel()
-        timer = Timer()
-        timer?.scheduleAtFixedRate(
-            object : TimerTask() {
-                override fun run() = checkForeground()
-            },
-            0,
-            POLL_MS
-        )
+        // Normal start: update tracked packages and token
+        if (packages.isNotBlank()) {
+            tracked.clear()
+            tracked.addAll(packages.split(",").filter { it.isNotBlank() })
+            authToken = token
 
-        Log.d(TAG, "Service started — monitoring ${tracked.size} apps: $packages")
+            val notification = buildNotification(
+                if (tracked.isEmpty()) "No apps tracked"
+                else "Monitoring ${tracked.size} app${if (tracked.size != 1) "s" else ""}"
+            )
+            startForeground(NOTIFICATION_ID, notification)
+
+            timer?.cancel()
+            timer = Timer()
+            timer?.scheduleAtFixedRate(
+                object : TimerTask() {
+                    override fun run() = checkForeground()
+                },
+                0,
+                POLL_MS
+            )
+
+            Log.d(TAG, "Service started — monitoring ${tracked.size} apps: $packages")
+        }
+
         return START_REDELIVER_INTENT
     }
 
@@ -77,6 +107,18 @@ class MonitorService : Service() {
         if (authToken.isBlank()) return
 
         val current = detectForegroundApp() ?: return
+
+        // Check if the current foreground app is blocked.
+        // Skip if it's DoomScroll itself or the blocker activity.
+        if (current != OWN_PACKAGE &&
+            current != "$OWN_PACKAGE.blocker" &&
+            blockedApps.contains(current)
+        ) {
+            val label = blockedLabels[current] ?: current
+            Log.d(TAG, "🔒 Blocked app in foreground: $current — launching blocker")
+            launchBlocker(current, label)
+        }
+
         if (current == lastForeground) return
 
         val wasTracked = lastForeground != null && tracked.contains(lastForeground)
@@ -124,6 +166,21 @@ class MonitorService : Service() {
                 ?.packageName
         }
         return null
+    }
+
+    // ── App blocker ────────────────────────────────────────────────────
+
+    private fun launchBlocker(packageName: String, appLabel: String) {
+        try {
+            val intent = Intent(this, AppBlockerActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(AppBlockerActivity.EXTRA_APP_LABEL, appLabel)
+                putExtra(AppBlockerActivity.EXTRA_PACKAGE_NAME, packageName)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to launch blocker: ${e.message}")
+        }
     }
 
     // ── API calls ───────────────────────────────────────────────────────
@@ -187,5 +244,12 @@ class MonitorService : Service() {
         private const val NOTIFICATION_ID = 1001
         private const val POLL_MS = 5000L
         private const val API_BASE = "https://doomscroll-aotr.onrender.com/api/v1/usage"
+        private const val OWN_PACKAGE = "com.example.doom_scroll"
+
+        /** Set of currently blocked package names — shared across service restarts. */
+        val blockedApps = mutableSetOf<String>()
+
+        /** Friendly labels for blocked apps. */
+        val blockedLabels = mutableMapOf<String, String>()
     }
 }

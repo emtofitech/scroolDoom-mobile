@@ -1,41 +1,36 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/models/breach_models.dart';
+import '../core/state/breach_controller.dart';
 import '../core/theme/colors.dart';
 import '../widgets/bottom_nav.dart';
 
 const _amber = Color(0xFFFFAA00);
 const _green = Color(0xFF00E676);
 
-class StreaksPage extends StatefulWidget {
+class StreaksPage extends ConsumerStatefulWidget {
   const StreaksPage({super.key});
 
   @override
-  State<StreaksPage> createState() => _StreaksPageState();
+  ConsumerState<StreaksPage> createState() => _StreaksPageState();
 }
 
-class _StreaksPageState extends State<StreaksPage> {
-  int _currentStreak = 12;
-  int _longestStreak = 28;
+class _StreaksPageState extends ConsumerState<StreaksPage> {
   bool _checkedInToday = false;
 
-  // Mock calendar data: true = clean day, false = breach, null = future
-  final List<bool?> _calendarDays = [
-    true, true, true, false, true, true, true,
-    true, true, true, true, true, false, true,
-    true, true, true, true, true, true, true,
-    false, true, true, true, null, null, null, null, null
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(breachControllerProvider.notifier).loadBreaches();
+    });
+  }
 
   void _handleCheckIn() {
     if (_checkedInToday) return;
     setState(() {
       _checkedInToday = true;
-      _currentStreak++;
-      if (_currentStreak > _longestStreak) {
-        _longestStreak = _currentStreak;
-      }
-      // Update today's calendar index (index 25) to true
-      _calendarDays[25] = true;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -62,6 +57,60 @@ class _StreaksPageState extends State<StreaksPage> {
 
   @override
   Widget build(BuildContext context) {
+    final breachState = ref.watch(breachControllerProvider);
+    final breaches = breachState.breaches.where((b) => b.breachType == BreachType.screenTimeExceeded).toList();
+
+    // Calculate calendar for current month (30 days approximation)
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    // Group breaches by start of day
+    final breachDays = <DateTime>{};
+    for (var b in breaches) {
+      breachDays.add(DateTime(b.breachedAt.year, b.breachedAt.month, b.breachedAt.day));
+    }
+
+    final calendarDays = <bool?>[];
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    for (int i = 1; i <= daysInMonth; i++) {
+      final currentDay = DateTime(now.year, now.month, i);
+      if (currentDay.isAfter(today)) {
+        calendarDays.add(null);
+      } else {
+        if (breachDays.contains(currentDay)) {
+          calendarDays.add(false); // breach
+        } else {
+          calendarDays.add(true); // clean
+        }
+      }
+    }
+
+    // Current streak (count backwards from today until we hit a false)
+    int currentStreak = 0;
+    for (int i = today.day - 1; i >= 0; i--) {
+      if (calendarDays[i] == true) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+    if (_checkedInToday && (calendarDays[today.day - 1] == false || currentStreak == 0)) {
+       // if checked in and not breached today
+       if (!breachDays.contains(today)) currentStreak++;
+    }
+
+    // Longest streak calculation
+    int longestStreak = 0;
+    int current = 0;
+    for (int i = 0; i < calendarDays.length; i++) {
+      if (calendarDays[i] == true) {
+        current++;
+        if (current > longestStreak) longestStreak = current;
+      } else if (calendarDays[i] == false) {
+        current = 0;
+      }
+    }
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       bottomNavigationBar: const AppBottomNav(currentIndex: 2),
@@ -128,8 +177,8 @@ class _StreaksPageState extends State<StreaksPage> {
 
             /// HERO STREAK PROGRESS CARD
             _StreakHeroCard(
-              currentStreak: _currentStreak,
-              longestStreak: _longestStreak,
+              currentStreak: currentStreak,
+              longestStreak: longestStreak,
             ),
 
             const SizedBox(height: 20),
@@ -274,7 +323,7 @@ class _StreaksPageState extends State<StreaksPage> {
             const SizedBox(height: 16),
 
             /// CALENDAR GRID CHECK-IN TRACKER
-            _CalendarGrid(days: _calendarDays),
+            _CalendarGrid(days: calendarDays),
 
             const SizedBox(height: 40),
           ],

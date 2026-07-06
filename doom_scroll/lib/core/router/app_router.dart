@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../pages/splash.dart';
 import '../../pages/landing.dart';
 import '../../pages/home.dart';
 import '../../pages/app_limits.dart';
@@ -10,6 +11,7 @@ import '../../pages/streaks.dart';
 import '../../pages/accountability.dart';
 import '../../pages/breaches.dart';
 import '../../pages/settings.dart';
+import '../../pages/permission_denied.dart';
 import '../../auth_pages/signin.dart';
 import '../../auth_pages/signup.dart';
 
@@ -17,7 +19,8 @@ import '../../auth_pages/signup.dart';
 class AppRoutes {
   AppRoutes._();
 
-  static const String landing = '/';
+  static const String splash = '/';
+  static const String landing = '/landing';
   static const String signIn = '/sign-in';
   static const String signUp = '/sign-up';
   static const String home = '/home';
@@ -28,6 +31,7 @@ class AppRoutes {
   static const String lockout = '/lockout';
   static const String breaches = '/breaches';
   static const String settings = '/settings';
+  static const String permission = '/permission';
 }
 
 /// Global navigator key — lets services outside the widget tree push routes.
@@ -39,8 +43,12 @@ final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>(
 /// GoRouter configuration for the entire app.
 final appRouter = GoRouter(
   navigatorKey: appNavigatorKey,
-  initialLocation: AppRoutes.landing,
+  initialLocation: AppRoutes.splash,
   routes: [
+    GoRoute(
+      path: AppRoutes.splash,
+      builder: (context, state) => const SplashPage(),
+    ),
     GoRoute(
       path: AppRoutes.landing,
       builder: (context, state) => const LandingPage(),
@@ -77,12 +85,17 @@ final appRouter = GoRouter(
       path: AppRoutes.lockout,
       builder: (context, state) {
         final appName = state.uri.queryParameters['app'] ?? 'Instagram';
-        return LockoutPage(appName: appName);
+        final packageName = state.uri.queryParameters['package'] ?? '';
+        return LockoutPage(appName: appName, packageName: packageName);
       },
     ),
     GoRoute(
       path: AppRoutes.breaches,
       builder: (context, state) => const BreachesPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.permission,
+      builder: (context, state) => const PermissionDeniedPage(),
     ),
   ],
 );

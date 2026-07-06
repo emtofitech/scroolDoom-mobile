@@ -29,33 +29,6 @@ class UsageSyncResult {
       UsageSyncResult(synced: (json['synced'] as num?)?.toInt() ?? 0);
 }
 
-// ── Usage Report ──────────────────────────────────────────────────────────────
-
-/// A single real-time tick sent to POST /api/v1/usage/report
-class UsageTick {
-  final String appId;
-  final String timestamp; // ISO-8601
-  final int durationSeconds;
-
-  const UsageTick({
-    required this.appId,
-    required this.timestamp,
-    required this.durationSeconds,
-  });
-
-  factory UsageTick.now(String appId, int durationSeconds) => UsageTick(
-        appId: appId,
-        timestamp: DateTime.now().toUtc().toIso8601String(),
-        durationSeconds: durationSeconds,
-      );
-
-  Map<String, dynamic> toJson() => {
-        'appId': appId,
-        'timestamp': timestamp,
-        'durationSeconds': durationSeconds,
-      };
-}
-
 /// Warning returned when an app is approaching its daily limit.
 class UsageWarning {
   final String appId;
@@ -78,50 +51,24 @@ class UsageWarning {
 /// A lock that was triggered because the app exceeded its daily limit.
 class NewLock {
   final String appId;
+  final String appLabel;
   final String lockEventId;
   final DateTime lockedUntil;
 
   const NewLock({
     required this.appId,
+    this.appLabel = '',
     required this.lockEventId,
     required this.lockedUntil,
   });
 
   factory NewLock.fromJson(Map<String, dynamic> json) => NewLock(
         appId: json['appId'] as String? ?? '',
+        appLabel: json['appLabel'] as String? ?? '',
         lockEventId: json['lockEventId'] as String? ?? '',
         lockedUntil: DateTime.tryParse(
                 json['lockedUntil'] as String? ?? '') ??
             DateTime.now(),
-      );
-}
-
-/// Full response from POST /api/v1/usage/report
-class UsageReportResult {
-  final int processed;
-  final List<UsageWarning> warnings;
-  final List<NewLock> newLocks;
-
-  const UsageReportResult({
-    required this.processed,
-    required this.warnings,
-    required this.newLocks,
-  });
-
-  bool get hasWarnings => warnings.isNotEmpty;
-  bool get hasNewLocks => newLocks.isNotEmpty;
-
-  factory UsageReportResult.fromJson(Map<String, dynamic> json) =>
-      UsageReportResult(
-        processed: (json['processed'] as num?)?.toInt() ?? 0,
-        warnings: (json['warnings'] as List<dynamic>?)
-                ?.map((e) => UsageWarning.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
-        newLocks: (json['newLocks'] as List<dynamic>?)
-                ?.map((e) => NewLock.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
       );
 }
 

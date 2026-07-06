@@ -12,6 +12,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Prevent sleep while monitoring -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Required to launch AppBlockerActivity from the background on Android 10+ -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Required for API calls in release builds -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="doom_scroll"
@@ -51,6 +55,15 @@
             android:name=".MonitorService"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
+
+        <activity
+            android:name=".AppBlockerActivity"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true"
+            android:taskAffinity="com.example.doom_scroll.blocker"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

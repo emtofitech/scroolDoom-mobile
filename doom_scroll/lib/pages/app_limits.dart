@@ -13,6 +13,7 @@ import '../core/services/limits_service.dart';
 import '../core/services/usage_monitor_service.dart';
 import '../core/services/usage_service.dart';
 import '../core/state/auth_controller.dart';
+import '../core/state/breach_controller.dart';
 import '../core/router/app_router.dart';
 import '../core/services/token_storage.dart';
 import '../widgets/bottom_nav.dart';
@@ -156,26 +157,10 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
     ForegroundMonitorService.instance.start(packages, authToken: token);
     UsageMonitorService.instance.start(packages, limits: limitsMap);
 
-    if (!await UsageService.hasUsagePermission()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text(
-            'Grant "Usage Access" to detect when tracked apps open',
-          ),
-          backgroundColor: AppColors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 10),
-          action: SnackBarAction(
-            label: 'Open Settings',
-            textColor: Colors.white,
-            onPressed: () => UsageService.openUsageSettings(),
-          ),
-        ),
-      );
+    final hasUsage = await UsageService.hasUsagePermission();
+    final hasOverlay = await UsageService.hasOverlayPermission();
+    if (!hasUsage || !hasOverlay) {
+      if (mounted) context.push(AppRoutes.permission);
     }
   }
 
@@ -239,6 +224,7 @@ class _AppLimitsPageState extends ConsumerState<AppLimitsPage> {
     if (!mounted) return;
 
     if (result.isSuccess) {
+      ref.read(breachControllerProvider.notifier).removeBreachesByPackage(limit.packageName);
       _showSnackBar('${limit.appLabel} removed');
       _loadAll();
     } else {

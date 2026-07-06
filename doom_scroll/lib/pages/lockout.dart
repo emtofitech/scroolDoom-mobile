@@ -1,14 +1,19 @@
-// lockout_page.dart
-
 import 'dart:async';
-import 'package:doom_scroll/widgets/bottom_nav.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../core/services/lock_service.dart';
+import '../core/services/usage_monitor_service.dart';
 import '../core/theme/colors.dart';
 
 class LockoutPage extends StatefulWidget {
   final String appName;
+  final String packageName;
 
-  const LockoutPage({super.key, required this.appName});
+  const LockoutPage({
+    super.key,
+    required this.appName,
+    this.packageName = '',
+  });
 
   @override
   State<LockoutPage> createState() => _LockoutPageState();
@@ -17,6 +22,7 @@ class LockoutPage extends StatefulWidget {
 class _LockoutPageState extends State<LockoutPage> {
   int seconds = 900;
   Timer? timer;
+  bool _isUnlocking = false;
 
   @override
   void initState() {
@@ -42,10 +48,52 @@ class _LockoutPageState extends State<LockoutPage> {
     return '$m:$s';
   }
 
+  Future<void> _unlock() async {
+    if (_isUnlocking || widget.packageName.isEmpty) return;
+    setState(() => _isUnlocking = true);
+
+    final result = await LockService.unlockApp(widget.packageName);
+    if (!mounted) return;
+
+    setState(() => _isUnlocking = false);
+
+    if (result.isSuccess) {
+      UsageMonitorService.instance.unlockApp(widget.packageName);
+      if (context.mounted) context.pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to unlock'),
+          backgroundColor: AppColors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
+  Future<void> _waitAndDismiss() async {
+    Navigator.pop(context);
+    await Future.delayed(const Duration(seconds: 10));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Take a deep breath. Stay mindful.'),
+          backgroundColor: AppColors.cyan,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
   void _showUnlockSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isDismissible: !_isUnlocking,
       builder: (_) {
         return Container(
           padding: const EdgeInsets.all(24),
@@ -76,29 +124,47 @@ class _LockoutPageState extends State<LockoutPage> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              _UnlockOption(
-                title: 'Wait 10 seconds and reflect',
-                subtitle: 'Mindful unlock',
-                color: AppColors.cyan,
-              ),
+              if (_isUnlocking)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: CircularProgressIndicator(color: AppColors.cyan),
+                )
+              else ...[
+                const SizedBox(height: 8),
 
-              const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: _waitAndDismiss,
+                  child: _UnlockOption(
+                    title: 'Wait 10 seconds and reflect',
+                    subtitle: 'Mindful unlock',
+                    color: AppColors.cyan,
+                  ),
+                ),
 
-              _UnlockOption(
-                title: 'Unlock for 5 minutes',
-                subtitle: 'Temporary access',
-                color: const Color(0xFFFFAA00),
-              ),
+                const SizedBox(height: 14),
 
-              const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: _unlock,
+                  child: _UnlockOption(
+                    title: 'Unlock for 5 minutes',
+                    subtitle: 'Temporary access',
+                    color: const Color(0xFFFFAA00),
+                  ),
+                ),
 
-              _UnlockOption(
-                title: 'Emergency Unlock',
-                subtitle: 'Override intervention',
-                color: AppColors.red,
-              ),
+                const SizedBox(height: 14),
+
+                GestureDetector(
+                  onTap: _unlock,
+                  child: _UnlockOption(
+                    title: 'Emergency Unlock',
+                    subtitle: 'Override intervention',
+                    color: AppColors.red,
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 30),
             ],

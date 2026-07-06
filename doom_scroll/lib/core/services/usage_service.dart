@@ -8,9 +8,8 @@ import '../network/api_endpoints.dart';
 import 'token_storage.dart';
 
 /// Reads device-level app usage via Android's UsageStatsManager and
-/// exposes all three backend usage endpoints:
+/// exposes the backend usage endpoints:
 ///   - POST /api/v1/usage/sync   — daily bulk sync
-///   - POST /api/v1/usage/report — real-time tick reporting (returns warnings + locks)
 ///   - GET  /api/v1/usage/summary — cross-device aggregated summary
 class UsageService {
   UsageService._();
@@ -40,6 +39,28 @@ class UsageService {
       await channel.invokeMethod('openUsageSettings');
     } catch (_) {
       debugPrint('⚠️ Could not open usage settings automatically.');
+    }
+  }
+
+  /// Returns true if the app has Android "Display over other apps" permission.
+  static Future<bool> hasOverlayPermission() async {
+    if (kIsWeb) return true; // Not applicable
+    try {
+      const channel = MethodChannel('com.doomscroll/usage');
+      final granted = await channel.invokeMethod<bool>('checkOverlayPermission');
+      return granted == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the Android "Display over other apps" settings screen.
+  static Future<void> openOverlaySettings() async {
+    try {
+      const channel = MethodChannel('com.doomscroll/usage');
+      await channel.invokeMethod('openOverlaySettings');
+    } catch (_) {
+      debugPrint('⚠️ Could not open overlay settings automatically.');
     }
   }
 
@@ -128,72 +149,6 @@ class UsageService {
     } catch (e) {
       return ApiResult.failure(e.toString());
     }
-  }
-
-  // ── POST /api/v1/usage/report ─────────────────────────────────────────
-
-  /// Reports real-time usage ticks to the backend.
-  ///
-  /// The backend evaluates each tick against daily limits and returns:
-  ///   - [UsageReportResult.warnings] — apps approaching their limit
-  ///   - [UsageReportResult.newLocks] — apps that just exceeded their limit
-  ///
-  /// Call this on a periodic timer (e.g. every 60 s) while the user is active.
-  static Future<ApiResult<UsageReportResult>> reportTicks(
-      List<UsageTick> ticks) async {
-    if (ticks.isEmpty) {
-      return ApiResult.success(
-          const UsageReportResult(processed: 0, warnings: [], newLocks: []));
-    }
-
-    try {
-      final token = await _requireToken();
-      if (token == null) return ApiResult.failure('Not authenticated');
-
-      final response = await ApiClient.post(
-        ApiEndpoints.usageReport,
-        body: {'ticks': ticks.map((t) => t.toJson()).toList()},
-        token: token,
-      );
-
-      if (response.isNetworkError) {
-        return ApiResult.failure(response.errorMessage ?? 'Network error');
-      }
-
-      final json = response.json;
-      if (json == null) {
-        return ApiResult.failure('Empty response');
-      }
-
-      if (response.isSuccess && json['success'] == true) {
-        final data = json['data'] as Map<String, dynamic>?;
-        final result = data != null
-            ? UsageReportResult.fromJson(data)
-            : const UsageReportResult(processed: 0, warnings: [], newLocks: []);
-
-        debugPrint(
-            '✅ [USAGE REPORT] processed=${result.processed}, '
-            'warnings=${result.warnings.length}, newLocks=${result.newLocks.length}');
-
-        return ApiResult.success(result);
-      }
-
-      return ApiResult.failure(
-        _errMsg(json, response, 'Report failed (${response.statusCode})'),
-      );
-    } catch (e) {
-      return ApiResult.failure(e.toString());
-    }
-  }
-
-  /// Convenience: build ticks from a `{ appId → secondsUsed }` snapshot
-  /// and report them all at once with a shared timestamp.
-  static Future<ApiResult<UsageReportResult>> reportUsageSnapshot(
-      Map<String, int> usageSnapshot) async {
-    final ticks = usageSnapshot.entries
-        .map((e) => UsageTick.now(e.key, e.value))
-        .toList();
-    return reportTicks(ticks);
   }
 
   // ── GET /api/v1/usage/summary ─────────────────────────────────────────

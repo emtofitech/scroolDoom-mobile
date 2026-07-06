@@ -114,4 +114,11 @@ class BreachController extends StateNotifier<BreachState> {
     }
     return null;
   }
+
+  void removeBreachesByPackage(String packageName) {
+    final filtered = state.breaches.where((b) => b.packageName != packageName).toList();
+    if (filtered.length != state.breaches.length) {
+      state = state.copyWith(breaches: filtered);
+    }
+  }
 }

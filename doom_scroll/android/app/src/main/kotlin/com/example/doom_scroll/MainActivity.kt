@@ -30,6 +30,20 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success(true)
                     }
+                    "checkOverlayPermission" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            result.success(Settings.canDrawOverlays(this@MainActivity))
+                        } else {
+                            result.success(true)
+                        }
+                    }
+                    "openOverlaySettings" -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))
+                            startActivity(intent)
+                        }
+                        result.success(true)
+                    }
                     "getForegroundApp" -> {
                         try {
                             val out = HashMap<String, Any?>()
@@ -68,12 +82,76 @@ class MainActivity : FlutterActivity() {
                     }
                     "stopMonitorService" -> {
                         try {
-                            stopService(Intent(this, MonitorService::class.java))
+                            stopService(Intent(this@MainActivity, MonitorService::class.java))
                             result.success(true)
                         } catch (ex: Exception) {
                             result.error("SERVICE_ERROR", ex.message, null)
                         }
                     }
+                    "bringToForeground" -> {
+                        val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    }
+
+                    // ── App lock/unlock via native MonitorService ──────────────
+                    "lockApp" -> {
+                        try {
+                            val packageName = call.argument<String>("packageName") ?: ""
+                            val appLabel = call.argument<String>("appLabel") ?: packageName
+                            if (packageName.isBlank()) {
+                                result.error("INVALID_ARG", "packageName is required", null)
+                                return@setMethodCallHandler
+                            }
+                            // Update the MonitorService's blocked set
+                            MonitorService.blockedApps.add(packageName)
+                            MonitorService.blockedLabels[packageName] = appLabel
+                            Log.d(TAG, "🔒 lockApp: $packageName ($appLabel)")
+
+                            // Also send to MonitorService via Intent so it can
+                            // trigger an immediate check
+                            val intent = Intent(this, MonitorService::class.java).apply {
+                                putExtra("lockAction", "lock")
+                                putExtra("lockPackage", packageName)
+                                putExtra("lockLabel", appLabel)
+                            }
+                            ContextCompat.startForegroundService(this, intent)
+
+                            result.success(true)
+                        } catch (ex: Exception) {
+                            Log.e(TAG, "lockApp error: ${ex.message}", ex)
+                            result.error("LOCK_ERROR", ex.message, null)
+                        }
+                    }
+                    "unlockApp" -> {
+                        try {
+                            val packageName = call.argument<String>("packageName") ?: ""
+                            if (packageName.isBlank()) {
+                                result.error("INVALID_ARG", "packageName is required", null)
+                                return@setMethodCallHandler
+                            }
+                            MonitorService.blockedApps.remove(packageName)
+                            MonitorService.blockedLabels.remove(packageName)
+                            Log.d(TAG, "🔓 unlockApp: $packageName")
+
+                            val intent = Intent(this, MonitorService::class.java).apply {
+                                putExtra("lockAction", "unlock")
+                                putExtra("lockPackage", packageName)
+                            }
+                            ContextCompat.startForegroundService(this, intent)
+
+                            result.success(true)
+                        } catch (ex: Exception) {
+                            Log.e(TAG, "unlockApp error: ${ex.message}", ex)
+                            result.error("UNLOCK_ERROR", ex.message, null)
+                        }
+                    }
+                    "getBlockedApps" -> {
+                        result.success(MonitorService.blockedApps.toList())
+                    }
+
                     else -> result.notImplemented()
                 }
             }

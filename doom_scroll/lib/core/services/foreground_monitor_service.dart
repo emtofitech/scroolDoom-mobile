@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 import '../models/limit_models.dart';
+import '../router/app_router.dart';
 import 'advanced_usage_service.dart';
 import 'breach_service.dart';
+import 'usage_monitor_service.dart';
 
 class ForegroundMonitorService {
   ForegroundMonitorService._();
@@ -17,10 +19,12 @@ class ForegroundMonitorService {
   Map<String, AppLimit> _limits = {};
   String? _lastForeground;
   String? _lastTrackedOpen;
+  DateTime? _sessionStart;
   bool _isRunning = false;
 
   bool get isRunning => _isRunning;
   Set<String> get trackedPackages => _trackedPackages;
+  String? get currentForegroundApp => _lastForeground;
 
   String? _authToken;
 
@@ -28,7 +32,11 @@ class ForegroundMonitorService {
   /// so we don't spam the API on every 5s poll.
   final Set<String> _blockedReported = {};
 
-  void start(Set<String> trackedPackages, {String? authToken, Map<String, AppLimit>? limits}) {
+  void start(
+    Set<String> trackedPackages, {
+    String? authToken,
+    Map<String, AppLimit>? limits,
+  }) {
     if (kIsWeb) return;
     _trackedPackages = trackedPackages;
     _limits = limits ?? {};
@@ -37,10 +45,16 @@ class ForegroundMonitorService {
     _timer?.cancel();
     _timer = Timer.periodic(_pollInterval, (_) => _check());
     _startNativeService();
-    debugPrint('🟢 [FOREGROUND] Started — monitoring ${trackedPackages.length} apps');
+    debugPrint(
+      '🟢 [FOREGROUND] Started — monitoring ${trackedPackages.length} apps',
+    );
   }
 
-  void updateTrackedApps(Set<String> trackedPackages, {String? authToken, Map<String, AppLimit>? limits}) {
+  void updateTrackedApps(
+    Set<String> trackedPackages, {
+    String? authToken,
+    Map<String, AppLimit>? limits,
+  }) {
     _trackedPackages = trackedPackages;
     if (limits != null) _limits = limits;
     if (authToken != null) _authToken = authToken;
@@ -111,17 +125,37 @@ class ForegroundMonitorService {
 
     final current = await _getForegroundApp();
     if (current == null) {
-      debugPrint('⏳ [FOREGROUND] No foreground app detected — retrying next cycle');
+      debugPrint(
+        '⏳ [FOREGROUND] No foreground app detected — retrying next cycle',
+      );
       return;
+    }
+
+    final isTracked = _trackedPackages.contains(current);
+
+    // Always check if the current foreground app is locked, even if the
+    // foreground hasn't changed since the last poll (e.g. lock was added
+    // by the 60s monitor while user stayed in the same app).
+    if (isTracked) {
+      if (UsageMonitorService.instance.lockedApps.contains(current)) {
+        debugPrint(
+          '🔒 [FOREGROUND] Locked app in foreground: $current',
+        );
+      } else if (current == _lastForeground && _sessionStart != null) {
+        final sessionSeconds = DateTime.now().difference(_sessionStart!).inSeconds;
+        UsageMonitorService.instance.checkActiveSession(current, sessionSeconds);
+      }
     }
 
     if (current == _lastForeground) return;
 
-    final wasTracked = _lastForeground != null && _trackedPackages.contains(_lastForeground);
-    final isTracked = _trackedPackages.contains(current);
+    final wasTracked =
+        _lastForeground != null && _trackedPackages.contains(_lastForeground);
 
-    debugPrint('👁 [FOREGROUND] Switch: $_lastForeground → $current '
-        '(wasTracked=$wasTracked, isTracked=$isTracked)');
+    debugPrint(
+      '👁 [FOREGROUND] Switch: $_lastForeground → $current '
+      '(wasTracked=$wasTracked, isTracked=$isTracked)',
+    );
 
     if (wasTracked && _lastTrackedOpen != null) {
       final closed = _lastTrackedOpen;
@@ -131,22 +165,37 @@ class ForegroundMonitorService {
     }
 
     if (isTracked) {
-      _lastTrackedOpen = current;
-      debugPrint('📤 [FOREGROUND] Tracked app opened: $current');
-      unawaited(AdvancedUsageService.recordAppOpen(packageName: current));
+      if (_lastTrackedOpen != current) {
+        _lastTrackedOpen = current;
+        _sessionStart = DateTime.now();
+        debugPrint('📤 [FOREGROUND] Tracked app opened: $current');
+        unawaited(AdvancedUsageService.recordAppOpen(packageName: current));
+      }
 
       // Report blocked-app breach if dailyLimitMinutes == 0
       final limit = _limits[current];
-      if (limit != null && limit.dailyLimitMinutes == 0 && !_blockedReported.contains(current)) {
+      if (limit != null &&
+          limit.dailyLimitMinutes == 0 &&
+          !_blockedReported.contains(current)) {
         _blockedReported.add(current);
         debugPrint('🚫 [FOREGROUND] Blocked app opened: $current');
-        unawaited(BreachService.reportBlockedApp(
-          packageName: current,
-          appLabel: limit.appLabel,
-        ));
+        unawaited(
+          BreachService.reportBlockedApp(
+            packageName: current,
+            appLabel: limit.appLabel,
+          ),
+        );
+      }
+
+      // If app is currently locked (limit exceeded), navigate to lockout screen
+      if (UsageMonitorService.instance.lockedApps.contains(current)) {
+        debugPrint(
+          '🔒 [FOREGROUND] Locked app opened: $current',
+        );
       }
     }
 
     _lastForeground = current;
   }
+
 }

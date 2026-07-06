@@ -24,14 +24,16 @@ class ApiEndpoints {
   static const String limits = '$_apiVersion/limits';
   static String limitById(String id) => '$_apiVersion/limits/$id';
   static const String limitsStatus = '$_apiVersion/limits/status';
+  static String limitAutoLock(String packageName) => '$_apiVersion/limits/$packageName/auto-lock';
 
   // ── App Locks ─────────────────────────────────────────────────────────────
   static const String locks = '$_apiVersion/locks';
   static const String emergencyUnlock = '$_apiVersion/locks/emergency-unlock';
+  static const String limitsBlocked = '$_apiVersion/limits/blocked';
+  static String limitsBlockedByPackage(String packageName) => '$_apiVersion/limits/blocked/$packageName';
 
   // ── Usage Tracking ────────────────────────────────────────────────────────
   static const String usageSync = '$_apiVersion/usage/sync';
-  static const String usageReport = '$_apiVersion/usage/report';
   static const String usageSummary = '$_apiVersion/usage/summary';
 
   // ── Advanced Usage Tracking ───────────────────────────────────────────────

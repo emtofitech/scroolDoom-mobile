@@ -30,6 +30,11 @@ class AuthService {
       final firebaseUid = credential.user!.uid;
 
       // Step 2 — Get FCM token + Firebase ID token
+      await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
       final fcmToken = await FirebaseMessaging.instance.getToken();
       final idToken = await credential.user!.getIdToken(true);
 

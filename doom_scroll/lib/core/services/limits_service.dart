@@ -185,4 +185,35 @@ class LimitsService {
       return ApiResult.failure(e.toString());
     }
   }
+
+  // ── POST limits/{packageName}/auto-lock ─────────────────────────────────
+  static Future<ApiResult<Map<String, dynamic>>> autoLock({
+    required String packageName,
+  }) async {
+    try {
+      final token = await _token();
+      final response = await ApiClient.post(
+        ApiEndpoints.limitAutoLock(packageName),
+        token: token,
+        body: {},
+      );
+
+      if (response.isNetworkError) {
+        return ApiResult.failure(response.errorMessage ?? 'Network error');
+      }
+
+      final json = response.json;
+      if (json == null) {
+        return ApiResult.failure(response.errorMessage ?? 'Empty response');
+      }
+
+      if (response.isSuccess) {
+        return ApiResult.success(json);
+      }
+
+      return ApiResult.failure(_errMsg(response, 'Failed to auto-lock app'));
+    } catch (e) {
+      return ApiResult.failure(e.toString());
+    }
+  }
 }

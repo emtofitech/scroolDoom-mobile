@@ -1,15 +1,20 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/services.dart';
 
 // ignore_for_file: unawaited_futures
 import '../models/limit_models.dart';
 import '../models/usage_models.dart';
 import 'breach_service.dart';
+import 'foreground_monitor_service.dart';
+import 'limits_service.dart';
+import 'lock_service.dart';
+import 'notification_service.dart';
 import 'usage_service.dart';
 
-/// Singleton that periodically calls POST /api/v1/usage/report and
-/// broadcasts any [NewLock] events so the UI can react (e.g. navigate
-/// to the lockout screen).
+/// Singleton that periodically polls device usage and detects screen-time
+/// breaches on the client side. Also syncs backend-created locks from
+/// POST /api/v1/usage/app-open / app-close analysis.
 ///
 /// Lifecycle:
 ///   UsageMonitorService.instance.start(trackedAppIds)  — call after auth
@@ -26,6 +31,21 @@ class UsageMonitorService {
   Set<String> _trackedAppIds = {};
   Map<String, AppLimit> _limits = {};
   bool _isRunning = false;
+
+  /// Usage snapshot taken when monitoring started, used to avoid false
+  /// breaches from pre-existing usage (before the limit was set).
+  Map<String, int> _initialUsage = {};
+  
+  /// The most recent usage stats read from the OS.
+  Map<String, int> _latestUsage = {};
+
+  /// True on the first tick after start/update — used to record baseline.
+  bool _firstTick = true;
+
+  /// Apps that have been unlocked this session. The "baseline exceeds limit"
+  /// override is skipped for these so the user doesn't get immediately
+  /// re-locked after unlocking an app whose baseline was already over the limit.
+  final Set<String> _unlockedDuringSession = {};
 
   // ── Streams ───────────────────────────────────────────────────────────
 
@@ -53,6 +73,9 @@ class UsageMonitorService {
     _limits = limits ?? {};
     _isRunning = true;
     _screenTimeReported.clear();
+    _initialUsage.clear();
+    _firstTick = true;
+    _unlockedDuringSession.clear();
 
     // Cancel any existing timer before creating a new one
     _timer?.cancel();
@@ -68,9 +91,22 @@ class UsageMonitorService {
     _trackedAppIds = trackedAppIds;
     if (limits != null) {
       _limits = limits;
-      _screenTimeReported.clear();
+      _initialUsage.removeWhere((key, _) => !_trackedAppIds.contains(key));
+      _screenTimeReported.removeWhere((key) => !_trackedAppIds.contains(key));
+      lockedApps.removeWhere((key) => !_trackedAppIds.contains(key));
+      _unlockedDuringSession.removeWhere((key) => !_trackedAppIds.contains(key));
+      _firstTick = true;
     }
     debugPrint('🔄 [MONITOR] Updated to ${_trackedAppIds.length} tracked apps');
+  }
+
+  /// Removes an app from the locked set (e.g. after unlocking via the lockout page).
+  void unlockApp(String packageName) {
+    lockedApps.remove(packageName);
+    _screenTimeReported.remove(packageName);
+    _unlockedDuringSession.add(packageName);
+    _nativeUnlockApp(packageName);
+    debugPrint('🔓 [MONITOR] Removed lock for $packageName');
   }
 
   /// Stops the periodic timer. Call on logout or when all limits are removed.
@@ -79,6 +115,7 @@ class UsageMonitorService {
     _timer = null;
     _isRunning = false;
     _screenTimeReported.clear();
+    lockedApps.clear();
     debugPrint('🔴 [MONITOR] Stopped');
   }
 
@@ -89,11 +126,71 @@ class UsageMonitorService {
     _warningController.close();
   }
 
+  // ── Native MethodChannel for app locking ──────────────────────────────
+  static const _channel = MethodChannel('com.doomscroll/usage');
+
+  /// Tells the native MonitorService to block this app.
+  Future<void> _nativeLockApp(String packageName, String appLabel) async {
+    try {
+      await _channel.invokeMethod('lockApp', {
+        'packageName': packageName,
+        'appLabel': appLabel,
+      });
+      debugPrint('🔒 [MONITOR] Native lockApp called for $packageName');
+    } catch (e) {
+      debugPrint('⚠️ [MONITOR] Native lockApp failed: $e');
+    }
+  }
+
+  /// Tells the native MonitorService to unblock this app.
+  Future<void> _nativeUnlockApp(String packageName) async {
+    try {
+      await _channel.invokeMethod('unlockApp', {
+        'packageName': packageName,
+      });
+      debugPrint('🔓 [MONITOR] Native unlockApp called for $packageName');
+    } catch (e) {
+      debugPrint('⚠️ [MONITOR] Native unlockApp failed: $e');
+    }
+  }
+
   // ── Internal tick ─────────────────────────────────────────────────────
 
   /// Track which apps already had a screen-time breach reported this session
   /// so we don't spam the API on every 60s poll.
   final Set<String> _screenTimeReported = {};
+
+  /// Currently locked apps (package names) — populated from NewLock events.
+  final Set<String> lockedApps = {};
+
+  /// Polls GET /api/v1/limits/blocked for backend-created locks
+  /// and broadcasts NewLock events for any not yet tracked locally.
+  Future<void> _syncBackendLocks() async {
+    try {
+      final result = await LockService.getBlockedApps();
+      if (!result.isSuccess || result.data == null) return;
+      for (final blocked in result.data!) {
+        final packageName = blocked['packageName'] as String?;
+        if (packageName == null || packageName.isEmpty) continue;
+        if (lockedApps.contains(packageName)) continue;
+        lockedApps.add(packageName);
+        final expiresAtStr = blocked['expiresAt'] as String?;
+        final lockedUntil = expiresAtStr != null
+            ? (DateTime.tryParse(expiresAtStr) ??
+                DateTime.now().add(const Duration(hours: 24)))
+            : DateTime.now().add(const Duration(hours: 24));
+        final appLabel = blocked['appLabel'] as String? ?? packageName;
+        _lockController.add(NewLock(
+          appId: packageName,
+          appLabel: appLabel,
+          lockEventId: blocked['id']?.toString() ?? 'backend-$packageName',
+          lockedUntil: lockedUntil,
+        ));
+      }
+    } catch (e) {
+      debugPrint('⚠️ [MONITOR] Backend lock sync failed: $e');
+    }
+  }
 
   Future<void> _tick() async {
     if (_trackedAppIds.isEmpty) return;
@@ -102,49 +199,29 @@ class UsageMonitorService {
 
     // 1. Read current device usage from UsageStatsManager
     final usageMap = await UsageService.getTodayUsage(_trackedAppIds);
-    if (usageMap.isEmpty) {
-      debugPrint('⏱ [MONITOR] No usage data — skipping report');
-      return;
+    if (usageMap.isNotEmpty) {
+      _latestUsage = Map.from(usageMap);
+    } else {
+      debugPrint('⏱ [MONITOR] No usage data for tracked apps yet.');
     }
 
-    // 2. Report to backend (non-critical — don't block if it fails)
-    final result = await UsageService.reportUsageSnapshot(usageMap);
-
-    if (result.isSuccess) {
-      final report = result.data!;
-
-      // 3. Broadcast warnings (approaching limit)
-      for (final warning in report.warnings) {
-        debugPrint('⚠️ [MONITOR] Warning level ${warning.warningLevel} '
-            'for ${warning.appId} (${warning.usageSeconds}s)');
-        _warningController.add(warning);
-      }
-
-      // 4. Broadcast new locks (limit exceeded) and report screen-time breaches
-      for (final lock in report.newLocks) {
-        debugPrint('🔒 [MONITOR] New lock for ${lock.appId} '
-            'until ${lock.lockedUntil.toLocal()}');
-        _lockController.add(lock);
-
-        final limit = _limits[lock.appId];
-        if (limit != null) {
-          final actualSeconds = usageMap[lock.appId] ?? 0;
-          _screenTimeReported.add(lock.appId);
-          BreachService.reportScreenTime(
-            packageName: lock.appId,
-            appLabel: limit.appLabel,
-            limitMinutes: limit.dailyLimitMinutes,
-            actualMinutes: actualSeconds ~/ 60,
-          );
+    // 2. Add missing baselines for newly tracked apps
+    if (_firstTick) {
+      _firstTick = false;
+      for (final entry in usageMap.entries) {
+        if (!_initialUsage.containsKey(entry.key)) {
+          _initialUsage[entry.key] = entry.value;
         }
       }
-    } else {
-      debugPrint('⚠️ [MONITOR] Report failed: ${result.error} — '
-          'falling back to client-side detection');
+      debugPrint('⏱ [MONITOR] Baselines updated: $_initialUsage');
     }
 
-    // 5. Client-side screen-time breach detection (runs regardless of backend)
-    //    Catches breaches even when /usage/report returns an error.
+    // 3. Sync backend-created locks from app-open/app-close analysis
+    await _syncBackendLocks();
+
+    // 4. Client-side screen-time breach detection.
+    //    Compares usage SINCE baseline against the limit, so pre-existing
+    //    usage before monitoring started never triggers a false alarm.
     for (final entry in usageMap.entries) {
       final appId = entry.key;
       final actualSeconds = entry.value;
@@ -152,17 +229,104 @@ class UsageMonitorService {
       if (limit == null) continue;
 
       final limitSeconds = limit.dailyLimitMinutes * 60;
-      if (actualSeconds > limitSeconds && !_screenTimeReported.contains(appId)) {
+      final baseline = _initialUsage[appId] ?? 0;
+
+      // Only count usage above the baseline. Pre-existing usage
+      // before monitoring started never triggers a breach.
+      final wasInBaseline = _initialUsage.containsKey(appId);
+      int effectiveUsage = wasInBaseline ? actualSeconds - baseline : actualSeconds;
+      if (effectiveUsage < 0) effectiveUsage = 0;
+
+      if (effectiveUsage > limitSeconds && !_screenTimeReported.contains(appId)) {
         _screenTimeReported.add(appId);
+        lockedApps.add(appId);
         debugPrint('🚫 [MONITOR] Client-side screen-time breach: '
-            '$appId (${actualSeconds}s > ${limitSeconds}s)');
+            '$appId (${effectiveUsage}s vs ${limitSeconds}s limit, '
+            'baseline=$baseline, total=${actualSeconds}s)');
         BreachService.reportScreenTime(
           packageName: appId,
           appLabel: limit.appLabel,
           limitMinutes: limit.dailyLimitMinutes,
           actualMinutes: actualSeconds ~/ 60,
         );
+        BreachService.reportStreakBroken(
+          streakName: 'Daily Discipline',
+          missedDays: 1,
+        );
+        NotificationService.showBreachNotification(limit.appLabel);
+        // Tell native Android to block this app
+        _nativeLockApp(appId, limit.appLabel);
+        
+        // Call backend auto-lock
+        LimitsService.autoLock(packageName: appId).then((res) {
+          if (res.isSuccess && res.data != null) {
+            debugPrint('🔒 [MONITOR] Backend auto-lock response: ${res.data!['message']}');
+          }
+        });
+
+        _lockController.add(NewLock(
+          appId: appId,
+          appLabel: limit.appLabel,
+          lockEventId: 'client-$appId',
+          lockedUntil: DateTime.now().add(const Duration(hours: 24)),
+        ));
+      } else {
+        debugPrint('⏱ [MONITOR] No breach for $appId: '
+            'effective=${effectiveUsage}s, limit=${limitSeconds}s, '
+            'baseline=${baseline}s, total=${actualSeconds}s, '
+            'alreadyReported=${_screenTimeReported.contains(appId)}');
       }
+    }
+  }
+
+  /// Evaluates an active session's accumulated foreground time against the limit.
+  /// Called periodically by ForegroundMonitorService.
+  void checkActiveSession(String appId, int activeSessionSeconds) {
+    final limit = _limits[appId];
+    if (limit == null) return;
+
+    final limitSeconds = limit.dailyLimitMinutes * 60;
+    final baseline = _initialUsage[appId] ?? 0;
+    final latestStats = _latestUsage[appId] ?? 0;
+
+    int previousSessionsTime = latestStats - baseline;
+    if (previousSessionsTime < 0) previousSessionsTime = 0;
+
+    int effectiveUsage = previousSessionsTime + activeSessionSeconds;
+
+    if (effectiveUsage > limitSeconds && !_screenTimeReported.contains(appId)) {
+      _screenTimeReported.add(appId);
+      lockedApps.add(appId);
+      debugPrint('🚫 [MONITOR] ACTIVE SESSION screen-time breach: '
+          '$appId (${effectiveUsage}s vs ${limitSeconds}s limit)');
+
+      BreachService.reportScreenTime(
+        packageName: appId,
+        appLabel: limit.appLabel,
+        limitMinutes: limit.dailyLimitMinutes,
+        actualMinutes: effectiveUsage ~/ 60,
+      );
+      BreachService.reportStreakBroken(
+        streakName: 'Daily Discipline',
+        missedDays: 1,
+      );
+      NotificationService.showBreachNotification(limit.appLabel);
+      // Tell native Android to block this app
+      _nativeLockApp(appId, limit.appLabel);
+
+      // Call backend auto-lock
+      LimitsService.autoLock(packageName: appId).then((res) {
+        if (res.isSuccess && res.data != null) {
+          debugPrint('🔒 [MONITOR] Backend auto-lock response: ${res.data!['message']}');
+        }
+      });
+
+      _lockController.add(NewLock(
+        appId: appId,
+        appLabel: limit.appLabel,
+        lockEventId: 'client-active-$appId',
+        lockedUntil: DateTime.now().add(const Duration(hours: 24)),
+      ));
     }
   }
 }
